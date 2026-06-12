@@ -20,7 +20,8 @@
       "Bash(Select-Object -ExpandProperty FullName)",
       "Bash(Sort-Object)",
       "Bash(Get-ChildItem -Path \"c:\\\\Projects\\\\ctg-bites\\\\src\\\\app\" -Recurse -File)",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(Test-Path \"c:\\\\Projects\\\\ctg-bites\\\\README.md\")"
     ]
   }
 }
