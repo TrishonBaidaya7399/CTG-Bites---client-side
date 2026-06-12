@@ -1,6 +1,6 @@
 # CTG Bites Restaurant
 
-**Live URL:** [https://ctg-bites.vercel.app/](https://ctg-bites.vercel.app/) *(replace with your actual deployment URL)*
+**Live URL:** [https://ctg-bites.vercel.app/](https://ctg-bites.vercel.app/)
 
 CTG Bites is a modern, full-stack restaurant website for a Chittagong-based eatery serving authentic Bengali cuisine. It features a beautiful public-facing website for customers and a powerful admin panel for restaurant management.
 
