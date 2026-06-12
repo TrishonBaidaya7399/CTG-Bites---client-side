@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(New-Item -ItemType Directory -Force \"c:\\\\Projects\\\\ctg-bites\\\\public\\\\images\\\\menu\")",
+      "PowerShell(New-Item -ItemType Directory -Force \"c:\\\\Projects\\\\ctg-bites\\\\public\\\\images\\\\recipes\")",
+      "PowerShell(New-Item -ItemType Directory -Force \"c:\\\\Projects\\\\ctg-bites\\\\public\\\\images\\\\ingredients\")",
+      "PowerShell(New-Item -ItemType Directory -Force \"c:\\\\Projects\\\\ctg-bites\\\\public\\\\images\\\\team\")",
+      "PowerShell(New-Item -ItemType Directory -Force \"c:\\\\Projects\\\\ctg-bites\\\\public\\\\images\\\\avatars\")",
+      "Skill(deep-research)",
+      "Skill(deep-research:*)",
+      "WebSearch",
+      "WebFetch(domain:www.malou.io)",
+      "WebFetch(domain:rightchoice.ai)",
+      "WebFetch(domain:www.getsauce.com)"
+    ]
+  }
+}
