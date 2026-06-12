@@ -35,6 +35,7 @@ export function RecipesSection() {
                   src={recipe.image}
                   alt={recipe.title}
                   fill
+                  sizes="(max-width: 640px) 80vw, (max-width: 768px) 60vw, 33vw"
                   className="object-cover group-hover:scale-105 transition-transform duration-500"
                 />
                 <Badge className="absolute top-3 left-3 bg-brand-brown/80 text-white border-0 backdrop-blur-sm">

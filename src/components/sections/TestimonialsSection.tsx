@@ -34,7 +34,7 @@ export function TestimonialsSection() {
               <p className="font-sans text-sm text-brand-brown-mid leading-relaxed mb-5">"{t.text}"</p>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-brand-warm-gray overflow-hidden relative shrink-0">
-                  <Image src={t.avatar} alt={t.name} fill className="object-cover" />
+                  <Image src={t.avatar} alt={t.name} fill sizes="40px" className="object-cover" />
                 </div>
                 <div>
                   <p className="font-sans text-sm font-semibold text-brand-brown">{t.name}</p>

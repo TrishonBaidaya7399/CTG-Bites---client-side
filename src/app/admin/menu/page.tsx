@@ -97,6 +97,7 @@ export default function AdminMenuPage() {
                         src={currentImage}
                         alt={draft.name}
                         fill
+                        sizes="400px"
                         className="object-cover"
                         unoptimized={!!imagePreview}
                       />
@@ -224,7 +225,7 @@ export default function AdminMenuPage() {
             )}
           >
             <div className="relative h-36 bg-brand-warm-gray">
-              <Image src={item.image} alt={item.name} fill className="object-cover" unoptimized />
+              <Image src={item.image} alt={item.name} fill sizes="(max-width: 768px) 50vw, 25vw" className="object-cover" unoptimized />
               {!item.available && (
                 <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
                   <span className="font-sans font-bold text-white text-sm">Unavailable</span>

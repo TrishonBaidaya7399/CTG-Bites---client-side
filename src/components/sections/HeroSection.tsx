@@ -114,7 +114,7 @@ export function HeroSection() {
                   alt="Authentic Chittagong cuisine"
                   width={420}
                   height={420}
-                  className="w-36 sm:w-64 md:w-96 lg:w-105"
+                  className="w-36 h-auto sm:w-64 md:w-96 lg:w-105"
                   priority
                 />
               </motion.div>

@@ -79,7 +79,7 @@ export default async function RecipeDetailPage({
       </span>
       <h1 className="font-serif text-5xl font-bold text-brand-brown mb-6">{recipe.title}</h1>
       <div className="relative aspect-square rounded-2xl overflow-hidden mb-10">
-        <Image src={recipe.image} alt={recipe.title} fill className="object-cover" />
+        <Image src={recipe.image} alt={recipe.title} fill sizes="(max-width: 768px) 100vw, 768px" className="object-cover" priority />
       </div>
       <p className="font-sans text-brand-brown-mid text-lg mb-10 leading-relaxed">{recipe.excerpt}</p>
 

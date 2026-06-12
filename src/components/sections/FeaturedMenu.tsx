@@ -69,8 +69,8 @@ function DishCard({ item, index }: { item: MenuItem; index: number }) {
               src={item.image}
               alt={item.name}
               fill
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 288px"
               className="object-cover group-hover:scale-110 transition-transform duration-700"
-              unoptimized
             />
           </div>
 
@@ -193,7 +193,7 @@ export function FeaturedMenu() {
         transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 2 }}
         style={{ filter: "drop-shadow(0 8px 20px rgba(0,0,0,0.10))" }}
       >
-        <Image src="/images/ingredients/basil-sauce.webp" alt="" width={140} height={140} />
+        <Image src="/images/ingredients/basil-sauce.webp" alt="" width={140} height={140} className="w-full h-auto" />
       </motion.div>
 
       <motion.div
@@ -202,7 +202,7 @@ export function FeaturedMenu() {
         transition={{ duration: 9, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
         style={{ filter: "drop-shadow(0 8px 20px rgba(0,0,0,0.10))" }}
       >
-        <Image src="/images/ingredients/pepper-dots.png" alt="" width={110} height={110} />
+        <Image src="/images/ingredients/pepper-dots.png" alt="" width={110} height={110} className="w-full h-auto" />
       </motion.div>
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 md:px-6">

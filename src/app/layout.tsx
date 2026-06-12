@@ -55,6 +55,13 @@ export const metadata: Metadata = {
     site: "@ctgbites",
     creator: "@ctgbites",
   },
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/images/logo-icon.png", type: "image/png", sizes: "512x512" },
+    ],
+    apple: { url: "/images/logo-icon.png", sizes: "180x180" },
+  },
   robots: {
     index: true,
     follow: true,

@@ -35,6 +35,7 @@ export function MenuCard({ item, index = 0 }: { item: MenuItem; index?: number }
           src={item.image}
           alt={item.name}
           fill
+          sizes="(max-width: 768px) 50vw, 25vw"
           className="object-cover group-hover:scale-105 transition-transform duration-500"
         />
         {item.badge && (

@@ -21,7 +21,11 @@
       "Bash(Sort-Object)",
       "Bash(Get-ChildItem -Path \"c:\\\\Projects\\\\ctg-bites\\\\src\\\\app\" -Recurse -File)",
       "Bash(node -e ' *)",
-      "Bash(Test-Path \"c:\\\\Projects\\\\ctg-bites\\\\README.md\")"
+      "Bash(Test-Path \"c:\\\\Projects\\\\ctg-bites\\\\README.md\")",
+      "Bash(copy \"public\\\\images\\\\logo-icon.png\" \"public\\\\favicon.ico\")",
+      "Bash(copy \"public\\\\images\\\\logo-icon.png\" \"src\\\\app\\\\favicon.ico\")",
+      "PowerShell(Copy-Item \"c:\\\\Projects\\\\ctg-bites\\\\public\\\\images\\\\logo-icon.png\" -Destination \"c:\\\\Projects\\\\ctg-bites\\\\public\\\\favicon.ico\" -Force)",
+      "PowerShell(Copy-Item \"c:\\\\Projects\\\\ctg-bites\\\\public\\\\images\\\\logo-icon.png\" -Destination \"c:\\\\Projects\\\\ctg-bites\\\\src\\\\app\\\\favicon.ico\" -Force)"
     ]
   }
 }

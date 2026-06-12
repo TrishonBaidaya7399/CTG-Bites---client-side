@@ -29,15 +29,29 @@ export default function LoginPage() {
         <div className="px-5 pt-8 pb-6 md:px-8 md:pt-10 md:pb-8">
           {/* Brand mark */}
           <div className="text-center mb-8">
-            <Link href="/" className="inline-block hover:opacity-80 transition-opacity">
-              <Image src="/images/logo-wordmark.png" alt="CTG Bites" width={140} height={36} />
+            <Link
+              href="/"
+              className="inline-block hover:opacity-80 transition-opacity"
+            >
+              <Image
+                src="/images/logo-wordmark.png"
+                alt="CTG Bites"
+                width={130}
+                height={34}
+                className="md:w-40 md:h-auto"
+                priority
+              />
             </Link>
             <p className="mt-1 text-xs font-semibold tracking-[0.2em] uppercase text-brand-orange">
               Est. 2015 — Chittagong
             </p>
             <div className="mt-6">
-              <h1 className="font-serif text-2xl font-bold text-white">Welcome back</h1>
-              <p className="mt-1 text-sm text-brand-cream/50">Sign in to place your order</p>
+              <h1 className="font-serif text-2xl font-bold text-white">
+                Welcome back
+              </h1>
+              <p className="mt-1 text-sm text-brand-cream/50">
+                Sign in to place your order
+              </p>
             </div>
           </div>
 
@@ -49,7 +63,9 @@ export default function LoginPage() {
               <div className="w-full border-t border-white/10" />
             </div>
             <div className="relative flex justify-center text-xs">
-              <span className="bg-transparent px-3 text-brand-cream/30">New to CTG Bites?</span>
+              <span className="bg-transparent px-3 text-brand-cream/30">
+                New to CTG Bites?
+              </span>
             </div>
           </div>
 

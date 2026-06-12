@@ -61,7 +61,8 @@ export function Navbar() {
               alt="CTG Bites"
               width={130}
               height={34}
-              className="md:w-40 md:h-10"
+              className="md:w-40 md:h-auto"
+              priority
             />
           </Link>
 
