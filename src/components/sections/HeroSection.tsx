@@ -1,4 +1,5 @@
 "use client";
+import React from "react";
 import { motion, type Variants, useScroll, useTransform, useSpring } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
@@ -35,7 +36,7 @@ export function HeroSection() {
   const scrollScale = useSpring(rawScale, { stiffness: 80, damping: 25 });
 
   return (
-    <section className="relative min-h-screen flex items-center overflow-hidden bg-brand-cream pt-16 pb-24 md:pb-8">
+    <section className="relative min-h-screen flex items-center overflow-hidden bg-brand-cream pt-16 pb-16 md:pb-8">
       {/* Dot pattern */}
       <div
         className="absolute inset-0 opacity-25"
@@ -57,19 +58,28 @@ export function HeroSection() {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.9, delay: 0.15, ease: "easeOut" }}
             className="relative flex justify-center items-center order-1 md:order-2
-                       w-full h-96 sm:h-120 md:h-155 mb-4 md:mb-0"
+                       w-full h-90 md:h-155 mb-2 md:mb-0 overflow-hidden md:overflow-visible"
           >
-            {/* Orbit rings — sized to match larger orbit radius */}
+            {/* Orbit rings */}
             <div
-              className="absolute rounded-full border border-dashed border-brand-orange/20"
+              className="absolute rounded-full border border-dashed border-brand-orange/20 hidden sm:block"
               style={{ width: 460, height: 460 }}
             />
             <div
-              className="absolute rounded-full border border-dashed border-brand-brown/10"
+              className="absolute rounded-full border border-dashed border-brand-brown/10 hidden sm:block"
               style={{ width: 360, height: 360 }}
             />
+            {/* Smaller orbit rings for mobile */}
+            <div
+              className="absolute rounded-full border border-dashed border-brand-orange/20 sm:hidden"
+              style={{ width: 280, height: 280 }}
+            />
+            <div
+              className="absolute rounded-full border border-dashed border-brand-brown/10 sm:hidden"
+              style={{ width: 220, height: 220 }}
+            />
 
-            {/* Orbiting food items */}
+            {/* Orbiting food items — smaller radius on mobile */}
             {orbitItems.map((item, i) => (
               <OrbitItem
                 key={item.alt}
@@ -78,6 +88,8 @@ export function HeroSection() {
                 label={item.label}
                 size={110}
                 orbitRadius={230}
+                mobileOrbitRadius={130}
+                mobileSize={72}
                 startAngle={item.startAngle}
                 duration={22 + i * 3}
                 delay={i * 0.3}
@@ -102,7 +114,7 @@ export function HeroSection() {
                   alt="Authentic Chittagong cuisine"
                   width={420}
                   height={420}
-                  className="w-48 sm:w-64 md:w-96 lg:w-105"
+                  className="w-36 sm:w-64 md:w-96 lg:w-105"
                   priority
                 />
               </motion.div>
@@ -173,59 +185,80 @@ interface OrbitItemProps {
   label: string;
   size: number;
   orbitRadius: number;
+  mobileOrbitRadius: number;
+  mobileSize: number;
   startAngle: number;
   duration: number;
   delay: number;
 }
 
-function OrbitItem({ src, alt, label, size, orbitRadius, startAngle, duration, delay }: OrbitItemProps) {
+function OrbitItem({ src, alt, label, size, orbitRadius, mobileOrbitRadius, mobileSize, startAngle, duration, delay }: OrbitItemProps) {
+  // Use CSS custom properties passed via inline style to swap values at each breakpoint
   const halfSize = size / 2;
+  const mobileHalfSize = mobileSize / 2;
 
   return (
-    /* The wrapper rotates around the center. We offset it by the orbit radius so
-       the child sits on the ring, then counter-rotate the image so it stays upright. */
     <motion.div
-      className="absolute"
+      className="absolute sm:[--orbit-r:0px]"
       style={{
-        width: size,
-        height: size,
+        width: `var(--item-size, ${mobileSize}px)`,
+        height: `var(--item-size, ${mobileSize}px)`,
         top: "50%",
         left: "50%",
-        marginTop: -halfSize,
-        marginLeft: -halfSize,
+        marginTop: `var(--item-half, -${mobileHalfSize}px)`,
+        marginLeft: `var(--item-half, -${mobileHalfSize}px)`,
         transformOrigin: "center center",
-      }}
+      } as React.CSSProperties}
       animate={{ rotate: [startAngle, startAngle + 360] }}
       transition={{ duration, delay, repeat: Infinity, ease: "linear" }}
     >
-      {/* Translate outward to orbit radius, then counter-rotate the content */}
       <motion.div
+        animate={{ rotate: [-startAngle, -(startAngle + 360)] }}
+        transition={{ duration, delay, repeat: Infinity, ease: "linear" }}
+        className="flex flex-col items-center gap-1"
         style={{
           position: "absolute",
           top: "50%",
           left: "50%",
-          width: size,
-          height: size,
+          marginTop: -mobileHalfSize,
+          marginLeft: -mobileHalfSize,
+          translateX: mobileOrbitRadius,
+        } as React.CSSProperties}
+      >
+        {/* Mobile sizing */}
+        <div
+          className="rounded-full overflow-hidden shadow-xl border-2 border-white sm:hidden"
+          style={{ width: mobileSize, height: mobileSize }}
+        >
+          <Image src={src} alt={alt} width={mobileSize} height={mobileSize} className="w-full h-full object-cover" />
+        </div>
+        <span
+          className="font-sans font-semibold text-brand-brown bg-white/70 backdrop-blur-sm rounded-full px-2 py-0.5 shadow-sm whitespace-nowrap sm:hidden"
+          style={{ fontSize: 8 }}
+        >
+          {label}
+        </span>
+      </motion.div>
+
+      {/* Desktop sizing (sm+) */}
+      <motion.div
+        animate={{ rotate: [-startAngle, -(startAngle + 360)] }}
+        transition={{ duration, delay, repeat: Infinity, ease: "linear" }}
+        className="hidden sm:flex flex-col items-center gap-1"
+        style={{
+          position: "absolute",
+          top: "50%",
+          left: "50%",
           marginTop: -halfSize,
           marginLeft: -halfSize,
           translateX: orbitRadius,
-          translateY: 0,
-        }}
-        animate={{ rotate: [-(startAngle), -(startAngle + 360)] }}
-        transition={{ duration, delay, repeat: Infinity, ease: "linear" }}
-        className="flex flex-col items-center gap-1"
+        } as React.CSSProperties}
       >
         <div
           className="rounded-full overflow-hidden shadow-xl border-2 border-white"
           style={{ width: size, height: size }}
         >
-          <Image
-            src={src}
-            alt={alt}
-            width={size}
-            height={size}
-            className="w-full h-full object-cover"
-          />
+          <Image src={src} alt={alt} width={size} height={size} className="w-full h-full object-cover" />
         </div>
         <span
           className="font-sans font-semibold text-brand-brown bg-white/70 backdrop-blur-sm rounded-full px-2 py-0.5 shadow-sm whitespace-nowrap"

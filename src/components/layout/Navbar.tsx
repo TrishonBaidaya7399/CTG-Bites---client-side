@@ -56,23 +56,13 @@ export function Navbar() {
         <nav className="max-w-7xl mx-auto px-4 md:px-6 flex items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center">
-            {/* Icon logo on mobile, wordmark on desktop */}
-            <span className="block md:hidden">
-              <Image
-                src="/images/logo-icon.png"
-                alt="CTG Bites"
-                width={38}
-                height={38}
-              />
-            </span>
-            <span className="hidden md:block">
-              <Image
-                src="/images/logo-wordmark.png"
-                alt="CTG Bites"
-                width={160}
-                height={40}
-              />
-            </span>
+            <Image
+              src="/images/logo-wordmark.png"
+              alt="CTG Bites"
+              width={130}
+              height={34}
+              className="md:w-40 md:h-10"
+            />
           </Link>
 
           {/* Desktop nav links */}
@@ -173,27 +163,59 @@ export function Navbar() {
       {/* Cart slide-over */}
       <CartSheet open={cartOpen} onClose={() => setCartOpen(false)} />
 
-      {/* Mobile bottom tab bar */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-brand-cream/96 backdrop-blur-md border-t border-brand-warm-gray safe-area-pb">
-        <div className="flex items-center justify-around py-2">
+      {/* Mobile bottom tab bar — floating pill */}
+      <nav className="md:hidden fixed bottom-6 inset-x-0 z-50 flex justify-center pointer-events-none">
+        {/* Outer glow */}
+        <div className="absolute inset-x-6 bottom-0 h-14 rounded-full bg-brand-orange/20 blur-xl" />
+
+        {/* Pill container */}
+        <div
+          className="relative pointer-events-auto flex items-center gap-1 px-3 py-2 rounded-full border border-white/30"
+          style={{
+            background: "rgba(245, 240, 232, 0.55)",
+            backdropFilter: "blur(20px) saturate(1.6)",
+            WebkitBackdropFilter: "blur(20px) saturate(1.6)",
+            boxShadow: "0 8px 32px rgba(44, 26, 14, 0.14), 0 2px 8px rgba(232, 98, 42, 0.10), inset 0 1px 0 rgba(255,255,255,0.5)",
+          }}
+        >
           {bottomTabs.map(({ label, href, icon: Icon }) => {
             const active = pathname === href;
             return (
               <Link
                 key={href}
                 href={href}
-                className={cn(
-                  "flex flex-col items-center gap-0.5 px-3 py-1 rounded-xl transition-colors min-w-13",
-                  active ? "text-brand-orange" : "text-brand-brown-mid"
-                )}
+                className="relative flex flex-col items-center justify-center gap-0.5 w-14 h-12 rounded-full transition-colors"
               >
+                {/* Active/hover background pill */}
+                {active && (
+                  <motion.div
+                    layoutId="tab-active-bg"
+                    className="absolute inset-0 rounded-full"
+                    style={{
+                      background: "rgba(232, 98, 42, 0.30)",
+                      backdropFilter: "blur(8px)",
+                      WebkitBackdropFilter: "blur(8px)",
+                      boxShadow: "0 0 12px rgba(232, 98, 42, 0.25), inset 0 1px 0 rgba(255,255,255,0.4)",
+                      border: "2px solid rgba(232, 98, 42, 0.3)",
+                    }}
+                    transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                  />
+                )}
+
                 <motion.div
-                  animate={active ? { scale: 1.15, y: -2 } : { scale: 1, y: 0 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                  animate={active ? { scale: 1.1, y: -1 } : { scale: 1, y: 0 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 22 }}
+                  className="relative z-10"
                 >
-                  <Icon className="w-5 h-5" strokeWidth={active ? 2.5 : 1.8} />
+                  <Icon
+                    className={cn("w-5 h-5 transition-colors", active ? "text-brand-orange" : "text-brand-brown-mid")}
+                    strokeWidth={active ? 2.5 : 1.8}
+                  />
                 </motion.div>
-                <span className={cn("text-xs font-medium leading-none", active && "font-semibold")}>
+                <span className={cn(
+                  "relative z-10 text-[10px] font-medium leading-none transition-colors",
+                  active ? "text-brand-orange font-semibold" : "text-brand-brown-mid"
+                )}>
                   {label}
                 </span>
               </Link>

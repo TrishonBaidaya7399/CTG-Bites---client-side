@@ -138,7 +138,7 @@ export function CartSheet({ open, onClose }: CartSheetProps) {
 
             {/* Footer — coupon + summary + checkout */}
             {items.length > 0 && (
-              <div className="border-t border-brand-warm-gray px-5 pt-4 pb-6 space-y-4 bg-white">
+              <div className="border-t border-brand-warm-gray px-5 pt-4 pb-28 md:pb-6 space-y-4 bg-white">
                 {/* Coupon */}
                 <div>
                   <label className="flex items-center gap-1.5 text-xs font-semibold text-brand-brown-mid uppercase tracking-wider mb-2">

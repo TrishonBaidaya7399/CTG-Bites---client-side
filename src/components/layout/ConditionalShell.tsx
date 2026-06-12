@@ -16,7 +16,7 @@ export function ConditionalShell({ children }: { children: React.ReactNode }) {
   return (
     <>
       <Navbar />
-      <main className="pb-20 md:pb-0">{children}</main>
+      <main className="pb-28 md:pb-0">{children}</main>
       <Footer />
       <TimerModal />
       <OrderSyncProvider />
