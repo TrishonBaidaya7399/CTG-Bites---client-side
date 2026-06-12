@@ -11,7 +11,16 @@
       "WebSearch",
       "WebFetch(domain:www.malou.io)",
       "WebFetch(domain:rightchoice.ai)",
-      "WebFetch(domain:www.getsauce.com)"
+      "WebFetch(domain:www.getsauce.com)",
+      "Bash(npx tsc *)",
+      "Bash(npx next *)",
+      "Bash(xargs grep -l \"cart\\\\|Cart\\\\|zustand\")",
+      "Bash(npm install *)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Projects\\\\ctg-bites\\\\src\\\\components\" -Recurse -File)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Sort-Object)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Projects\\\\ctg-bites\\\\src\\\\app\" -Recurse -File)",
+      "Bash(node -e ' *)"
     ]
   }
 }

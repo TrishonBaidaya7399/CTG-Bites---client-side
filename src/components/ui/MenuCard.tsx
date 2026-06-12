@@ -1,15 +1,26 @@
 "use client";
-import { motion } from "framer-motion";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
-import { Star, Flame, Leaf } from "lucide-react";
+import { Star, Flame, Leaf, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useCartStore } from "@/store/cart";
 import type { menuItems } from "@/lib/mock-data";
 
 type MenuItem = (typeof menuItems)[number];
 
 export function MenuCard({ item, index = 0 }: { item: MenuItem; index?: number }) {
+  const addItem = useCartStore((s) => s.addItem);
+  const [added, setAdded] = useState(false);
+
+  function handleAdd() {
+    addItem({ id: item.id, name: item.name, price: item.price, image: item.image });
+    setAdded(true);
+    setTimeout(() => setAdded(false), 1400);
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 40 }}
@@ -19,7 +30,7 @@ export function MenuCard({ item, index = 0 }: { item: MenuItem; index?: number }
       whileHover={{ y: -6, transition: { duration: 0.2 } }}
       className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-shadow group cursor-pointer"
     >
-      <div className="relative h-52 overflow-hidden bg-brand-warm-gray">
+      <div className="relative h-44 md:h-52 overflow-hidden bg-brand-warm-gray">
         <Image
           src={item.image}
           alt={item.name}
@@ -58,9 +69,26 @@ export function MenuCard({ item, index = 0 }: { item: MenuItem; index?: number }
           </div>
           <Button
             size="sm"
-            className="bg-brand-orange hover:bg-brand-orange-light text-white rounded-full text-xs px-4"
+            onClick={handleAdd}
+            className={cn(
+              "rounded-full text-xs px-4 transition-colors",
+              added
+                ? "bg-brand-green-herb hover:bg-brand-green-herb text-white"
+                : "bg-brand-orange hover:bg-brand-orange-light text-white"
+            )}
           >
-            Add to cart
+            <AnimatePresence mode="wait" initial={false}>
+              {added ? (
+                <motion.span key="done" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+                  className="flex items-center gap-1">
+                  <Check className="w-3 h-3" /> Added
+                </motion.span>
+              ) : (
+                <motion.span key="add" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}>
+                  Add to cart
+                </motion.span>
+              )}
+            </AnimatePresence>
           </Button>
         </div>
       </div>

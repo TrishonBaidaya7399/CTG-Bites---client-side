@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import { AuthScene } from "@/components/auth/AuthScene";
 import { AuthCard } from "@/components/auth/AuthCard";
 import { LoginForm } from "@/components/auth/LoginForm";
@@ -21,15 +22,15 @@ export const metadata: Metadata = {
 
 export default function LoginPage() {
   return (
-    <div className="relative w-full min-h-screen flex items-center justify-center px-4 py-16">
+    <div className="relative w-full min-h-screen flex items-center justify-center px-4 py-8 md:py-16">
       <AuthScene />
 
       <AuthCard className="relative z-10 w-full max-w-md">
-        <div className="px-8 pt-10 pb-8">
+        <div className="px-5 pt-8 pb-6 md:px-8 md:pt-10 md:pb-8">
           {/* Brand mark */}
           <div className="text-center mb-8">
-            <Link href="/" className="inline-block font-serif text-3xl font-bold text-white tracking-tight hover:text-brand-orange transition-colors">
-              ctg-bites
+            <Link href="/" className="inline-block hover:opacity-80 transition-opacity">
+              <Image src="/images/logo-wordmark.png" alt="CTG Bites" width={140} height={36} />
             </Link>
             <p className="mt-1 text-xs font-semibold tracking-[0.2em] uppercase text-brand-orange">
               Est. 2015 — Chittagong

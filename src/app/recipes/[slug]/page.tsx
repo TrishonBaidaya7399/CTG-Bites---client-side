@@ -3,6 +3,8 @@ import Image from "next/image";
 import { recipes } from "@/lib/mock-data";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { recipeSchema, breadcrumbSchema } from "@/lib/structured-data";
+import { IngredientsGrid } from "@/components/recipe/IngredientsGrid";
+import { StepsTimeline } from "@/components/recipe/StepsTimeline";
 import type { Metadata } from "next";
 
 export async function generateStaticParams() {
@@ -76,33 +78,16 @@ export default async function RecipeDetailPage({
         {recipe.category}
       </span>
       <h1 className="font-serif text-5xl font-bold text-brand-brown mb-6">{recipe.title}</h1>
-      <div className="relative h-80 rounded-2xl overflow-hidden mb-10">
+      <div className="relative aspect-square rounded-2xl overflow-hidden mb-10">
         <Image src={recipe.image} alt={recipe.title} fill className="object-cover" />
       </div>
       <p className="font-sans text-brand-brown-mid text-lg mb-10 leading-relaxed">{recipe.excerpt}</p>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-        <div>
-          <h2 className="font-serif text-2xl font-bold text-brand-brown mb-4">Ingredients</h2>
-          <ul className="space-y-2">
-            {recipe.ingredients.map((ing, i) => (
-              <li key={i} className="font-sans text-sm text-brand-brown-mid flex items-start gap-2">
-                <span className="text-brand-orange mt-0.5">•</span>{ing}
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div>
-          <h2 className="font-serif text-2xl font-bold text-brand-brown mb-4">Steps</h2>
-          <ol className="space-y-3">
-            {recipe.steps.map((step, i) => (
-              <li key={i} className="font-sans text-sm text-brand-brown-mid flex gap-3">
-                <span className="font-serif font-bold text-brand-orange text-lg leading-none">{i + 1}.</span>
-                <span>{step}</span>
-              </li>
-            ))}
-          </ol>
-        </div>
+      <div className="mb-12">
+        <IngredientsGrid ingredients={recipe.ingredients} />
+      </div>
+      <div className="mb-12">
+        <StepsTimeline steps={recipe.steps} />
       </div>
     </article>
   );

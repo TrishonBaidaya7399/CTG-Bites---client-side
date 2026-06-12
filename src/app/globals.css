@@ -172,4 +172,6 @@
   .text-balance { text-wrap: balance; }
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  /* Safe area padding for iOS home indicator */
+  .safe-area-pb { padding-bottom: env(safe-area-inset-bottom, 0px); }
 }

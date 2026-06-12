@@ -1,6 +1,6 @@
 "use client";
-import { useState, useRef } from "react";
-import { motion, useMotionValue, useTransform, useSpring } from "framer-motion";
+import { useRef, useState } from "react";
+import { motion, useMotionValue, useTransform, useSpring, useMotionTemplate } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 interface AuthCardProps {
@@ -8,7 +8,8 @@ interface AuthCardProps {
   className?: string;
 }
 
-/** 3D tilt card — follows cursor on desktop, idle float on mobile */
+/** 3D tilt card — follows cursor on desktop.
+ *  The glare gradient is derived unconditionally (no hook inside JSX conditional). */
 export function AuthCard({ children, className }: AuthCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [hovered, setHovered] = useState(false);
@@ -18,8 +19,11 @@ export function AuthCard({ children, className }: AuthCardProps) {
 
   const rotateX = useSpring(useTransform(rawY, [-0.5, 0.5], [10, -10]), { stiffness: 200, damping: 25 });
   const rotateY = useSpring(useTransform(rawX, [-0.5, 0.5], [-10, 10]), { stiffness: 200, damping: 25 });
-  const glowX   = useTransform(rawX, [-0.5, 0.5], [0, 100]);
-  const glowY   = useTransform(rawY, [-0.5, 0.5], [0, 100]);
+
+  // Glare position — always computed, never inside a conditional
+  const glowX = useTransform(rawX, [-0.5, 0.5], [0, 100]);
+  const glowY = useTransform(rawY, [-0.5, 0.5], [0, 100]);
+  const glareBackground = useMotionTemplate`radial-gradient(circle at ${glowX}% ${glowY}%, rgba(255,255,255,0.07) 0%, transparent 60%)`;
 
   function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
     if (!cardRef.current) return;
@@ -46,19 +50,13 @@ export function AuthCard({ children, className }: AuthCardProps) {
       transition={{ duration: 0.7, ease: "easeOut" }}
       className={cn("relative w-full max-w-md", className)}
     >
-      {/* Glare overlay */}
-      {hovered && (
-        <motion.div
-          className="absolute inset-0 rounded-3xl pointer-events-none z-10"
-          style={{
-            background: useTransform(
-              [glowX, glowY],
-              ([x, y]) =>
-                `radial-gradient(circle at ${x}% ${y}%, rgba(255,255,255,0.06) 0%, transparent 60%)`
-            ),
-          }}
-        />
-      )}
+      {/* Glare overlay — always mounted, opacity driven by hovered state */}
+      <motion.div
+        className="absolute inset-0 rounded-3xl pointer-events-none z-10"
+        animate={{ opacity: hovered ? 1 : 0 }}
+        transition={{ duration: 0.2 }}
+        style={{ background: glareBackground }}
+      />
 
       {/* Card body */}
       <div
@@ -69,9 +67,8 @@ export function AuthCard({ children, className }: AuthCardProps) {
         style={{ transform: "translateZ(0px)" }}
       >
         {/* Top gradient accent */}
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-brand-orange/60 to-transparent" />
-        <div className="absolute top-0 left-0 right-0 h-16 bg-gradient-to-b from-brand-orange/8 to-transparent" />
-
+        <div className="absolute top-0 left-0 right-0 h-px bg-linear-to-r from-transparent via-brand-orange/60 to-transparent" />
+        <div className="absolute top-0 left-0 right-0 h-16 bg-linear-to-b from-brand-orange/8 to-transparent" />
         {children}
       </div>
     </motion.div>
