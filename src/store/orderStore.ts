@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Order, OrderStatus } from "@/types/order";
-import { mockOrders } from "@/lib/mock-orders";
 
 const STAFF_ROLES = ["owner", "manager", "staff", "rider"];
 
@@ -21,11 +20,15 @@ interface OrderState {
   adminUser: AdminUser | null;
   adminAccessToken: string | null;
 
-  // Order actions
+  // Order actions — all backed by real API calls via Next.js proxy routes
   placeOrder: (order: Order) => void;
-  acceptOrder: (id: string, estimatedMinutes: number) => void;
-  updateStatus: (id: string, status: OrderStatus) => void;
-  cancelOrder: (id: string) => void;
+  setOrders: (orders: Order[]) => void;
+  upsertOrder: (order: Order) => void;
+  patchOrder: (id: string, patch: Partial<Order>) => void;
+  fetchOrders: () => Promise<void>;
+  acceptOrder: (id: string, estimatedMinutes: number) => Promise<void>;
+  updateStatus: (id: string, status: OrderStatus) => Promise<void>;
+  cancelOrder: (id: string) => Promise<void>;
 
   // Timer modal
   setActiveTableOrder: (order: Order | null) => void;
@@ -42,7 +45,7 @@ interface OrderState {
 export const useOrderStore = create<OrderState>()(
   persist(
     (set, get) => ({
-      orders: mockOrders,
+      orders: [],
       activeTableOrder: null,
       timerModalOpen: false,
       timerModalMinimized: false,
@@ -54,32 +57,111 @@ export const useOrderStore = create<OrderState>()(
         set((s) => ({ orders: [order, ...s.orders] }));
       },
 
-      acceptOrder(id, estimatedMinutes) {
+      setOrders(orders) {
+        set({ orders });
+      },
+
+      // Insert or replace an order matched by human order number (Order.id)
+      upsertOrder(order) {
+        set((s) => {
+          const exists = s.orders.some((o) => o.id === order.id);
+          return {
+            orders: exists
+              ? s.orders.map((o) => (o.id === order.id ? { ...o, ...order } : o))
+              : [order, ...s.orders],
+            activeTableOrder:
+              s.activeTableOrder?.id === order.id ? { ...s.activeTableOrder, ...order } : s.activeTableOrder,
+          };
+        });
+      },
+
+      patchOrder(id, patch) {
         set((s) => ({
-          orders: s.orders.map((o) =>
-            o.id === id
-              ? { ...o, status: "accepted", estimatedMinutes, acceptedAt: new Date().toISOString() }
-              : o
-          ),
+          orders: s.orders.map((o) => (o.id === id ? { ...o, ...patch } : o)),
           activeTableOrder:
-            s.activeTableOrder?.id === id
-              ? { ...s.activeTableOrder, status: "accepted", estimatedMinutes, acceptedAt: new Date().toISOString() }
-              : s.activeTableOrder,
+            s.activeTableOrder?.id === id ? { ...s.activeTableOrder, ...patch } : s.activeTableOrder,
         }));
       },
 
-      updateStatus(id, status) {
-        set((s) => ({
-          orders: s.orders.map((o) => (o.id === id ? { ...o, status } : o)),
-          activeTableOrder:
-            s.activeTableOrder?.id === id
-              ? { ...s.activeTableOrder, status }
-              : s.activeTableOrder,
-        }));
+      async fetchOrders() {
+        const token = get().adminAccessToken;
+        if (!token) return;
+        try {
+          const res = await fetch("/api/orders", {
+            headers: { Authorization: `Bearer ${token}` },
+            cache: "no-store",
+          });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            set({ orders: data.orders ?? [] });
+          }
+        } catch {
+          // network error — leave existing orders in place
+        }
       },
 
-      cancelOrder(id) {
-        get().updateStatus(id, "cancelled");
+      async acceptOrder(id, estimatedMinutes) {
+        const token = get().adminAccessToken;
+        // Optimistic update
+        const acceptedAt = new Date().toISOString();
+        get().patchOrder(id, { status: "accepted", estimatedMinutes, acceptedAt });
+
+        if (!token) return;
+        try {
+          const res = await fetch(`/api/orders/${encodeURIComponent(id)}/accept`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ estimatedMinutes }),
+          });
+          const data = await res.json();
+          if (res.ok && data.success && data.order) {
+            get().upsertOrder(data.order);
+          }
+        } catch {
+          // keep optimistic state; socket event will reconcile if it arrives
+        }
+      },
+
+      async updateStatus(id, status) {
+        const token = get().adminAccessToken;
+        get().patchOrder(id, { status });
+
+        if (!token) return;
+        try {
+          const res = await fetch(`/api/orders/${encodeURIComponent(id)}/status`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ status }),
+          });
+          const data = await res.json();
+          if (res.ok && data.success && data.order) {
+            get().upsertOrder(data.order);
+          }
+        } catch {
+          // keep optimistic state
+        }
+      },
+
+      async cancelOrder(id) {
+        const token = get().adminAccessToken;
+        get().patchOrder(id, { status: "cancelled" });
+
+        try {
+          const res = await fetch(`/api/orders/${encodeURIComponent(id)}/cancel`, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({}),
+          });
+          const data = await res.json();
+          if (res.ok && data.success && data.order) {
+            get().upsertOrder(data.order);
+          }
+        } catch {
+          // keep optimistic state
+        }
       },
 
       setActiveTableOrder(order) {
@@ -103,10 +185,8 @@ export const useOrderStore = create<OrderState>()(
       },
 
       async adminLogin(email, password) {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-
         try {
-          const res = await fetch(`${apiUrl}/api/auth/login`, {
+          const res = await fetch("/api/admin/login", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email, password }),
@@ -134,7 +214,6 @@ export const useOrderStore = create<OrderState>()(
     }),
     {
       name: "ctg-bites-orders",
-      // Don't persist mock orders on first load if localStorage already has data
       partialize: (s) => ({
         orders: s.orders,
         activeTableOrder: s.activeTableOrder,

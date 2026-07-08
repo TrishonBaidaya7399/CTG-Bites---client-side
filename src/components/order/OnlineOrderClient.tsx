@@ -1,24 +1,36 @@
 "use client";
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 import Image from "next/image";
-import { CheckCircle2, Bike, Minus, Plus, Trash2, ShoppingBag, Flame, Leaf } from "lucide-react";
+import { CheckCircle2, Bike, Minus, Plus, ShoppingBag, Flame, Leaf } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { menuCategories, menuItems } from "@/lib/mock-data";
 import { useOrderStore } from "@/store/orderStore";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { cn } from "@/lib/utils";
-import type { Order } from "@/types/order";
 
 const AREAS = [
   "Agrabad","Badda","Bayezid","Chawkbazar","Double Mooring","GEC Circle",
   "Hali Shahar","Khulshi","Kotwali","Muradpur","Nasirabad","Panchlaish","Pahartali","Patenga",
 ];
 
+interface ApiMenuItem {
+  id: string;
+  name: string;
+  category: string;
+  price: number;
+  image: string;
+  isVeg?: boolean;
+  isSpicy?: boolean;
+}
+
 type LocalItem = { id: string; name: string; price: number; image: string; qty: number };
 
 export function OnlineOrderClient() {
   const { placeOrder } = useOrderStore();
+
+  const [menuItems, setMenuItems] = useState<ApiMenuItem[]>([]);
+  const [categories, setCategories] = useState<string[]>(["All"]);
+  const [loadingMenu, setLoadingMenu] = useState(true);
 
   const [activeCategory, setActiveCategory] = useState("All");
   const [localItems, setLocalItems] = useState<LocalItem[]>([]);
@@ -30,12 +42,39 @@ export function OnlineOrderClient() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [orderRef, setOrderRef] = useState("");
   const [success, setSuccess] = useState(false);
+  const [placing, setPlacing] = useState(false);
+
+  useEffect(() => {
+    async function loadMenu() {
+      try {
+        const res = await fetch("/api/menu");
+        const data = await res.json();
+        if (res.ok && data.success) {
+          const items: ApiMenuItem[] = (data.data ?? []).map((raw: Record<string, unknown>) => ({
+            id: (raw._id ?? raw.id) as string,
+            name: raw.name as string,
+            category: raw.category as string,
+            price: raw.price as number,
+            image: raw.image as string,
+            isVeg: raw.isVeg as boolean | undefined,
+            isSpicy: raw.isSpicy as boolean | undefined,
+          }));
+          setMenuItems(items);
+          const cats = Array.from(new Set(items.map((i) => i.category)));
+          setCategories(["All", ...cats]);
+        }
+      } finally {
+        setLoadingMenu(false);
+      }
+    }
+    loadMenu();
+  }, []);
 
   const filtered = activeCategory === "All" ? menuItems : menuItems.filter((i) => i.category === activeCategory);
   const totalPrice = localItems.reduce((s, i) => s + i.price * i.qty, 0);
   const totalQty = localItems.reduce((s, i) => s + i.qty, 0);
 
-  function adjustQty(item: typeof menuItems[0], delta: number) {
+  function adjustQty(item: ApiMenuItem, delta: number) {
     setLocalItems((prev) => {
       const existing = prev.find((i) => i.id === item.id);
       if (!existing) {
@@ -61,26 +100,36 @@ export function OnlineOrderClient() {
     return Object.keys(e).length === 0;
   }
 
-  function handlePlaceOrder() {
+  async function handlePlaceOrder() {
     if (!validate()) return;
-    const ref = "ONL-" + Math.random().toString(36).slice(2, 7).toUpperCase();
-    const order: Order = {
-      id: ref,
-      mode: "online",
-      type: "delivery",
-      status: "pending",
-      customerName: name,
-      customerPhone: phone,
-      customerAddress: `${address}, ${area}, Chittagong`,
-      items: localItems.map((i) => ({ menuItemId: i.id, name: i.name, price: i.price, quantity: i.qty, image: i.image })),
-      note: note || undefined,
-      total: totalPrice,
-      estimatedMinutes: 10,
-      createdAt: new Date().toISOString(),
-    };
-    placeOrder(order);
-    setOrderRef(ref);
-    setSuccess(true);
+    setPlacing(true);
+    try {
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "online",
+          type: "delivery",
+          customerName: name,
+          customerPhone: phone,
+          customerAddress: `${address}, ${area}, Chittagong`,
+          items: localItems.map((i) => ({ menuItemId: i.id, quantity: i.qty })),
+          note: note || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setErrors({ items: data.error ?? "Could not place order. Please try again." });
+        return;
+      }
+      placeOrder(data.order);
+      setOrderRef(data.order.id);
+      setSuccess(true);
+    } catch {
+      setErrors({ items: "Network error — could not place order." });
+    } finally {
+      setPlacing(false);
+    }
   }
 
   if (success) {
@@ -101,7 +150,7 @@ export function OnlineOrderClient() {
           </motion.div>
           <h2 className="font-serif text-2xl font-bold text-brand-brown mb-2">Order Placed!</h2>
           <p className="font-sans text-sm text-brand-brown-mid mb-6">
-            Thank you, <strong className="text-brand-brown">{name}</strong>! We'll deliver to <strong>{area}</strong>.
+            Thank you, <strong className="text-brand-brown">{name}</strong>! We&apos;ll deliver to <strong>{area}</strong>.
           </p>
           <div className="bg-brand-cream rounded-2xl px-5 py-4 text-left space-y-2 mb-6">
             <p className="font-sans text-xs uppercase tracking-wider text-brand-brown-mid font-semibold mb-2">Order Details</p>
@@ -142,7 +191,7 @@ export function OnlineOrderClient() {
           <div className="lg:col-span-2 space-y-5">
             {/* Category tabs */}
             <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-              {menuCategories.map((cat) => (
+              {categories.map((cat) => (
                 <button
                   key={cat}
                   onClick={() => setActiveCategory(cat)}
@@ -163,40 +212,44 @@ export function OnlineOrderClient() {
             )}
 
             {/* Menu grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              {filtered.map((item) => {
-                const qty = getQty(item.id);
-                return (
-                  <motion.div key={item.id} layout className="bg-white rounded-2xl overflow-hidden shadow-sm flex flex-col">
-                    <div className="relative h-32 bg-brand-warm-gray">
-                      <Image src={item.image} alt={item.name} fill sizes="(max-width: 640px) 50vw, 25vw" className="object-cover" />
-                      <div className="absolute top-2 right-2 flex gap-1">
-                        {item.isVeg && <span className="bg-brand-green-herb text-white rounded-full p-1"><Leaf className="w-2.5 h-2.5" /></span>}
-                        {item.isSpicy && <span className="bg-red-500 text-white rounded-full p-1"><Flame className="w-2.5 h-2.5" /></span>}
+            {loadingMenu ? (
+              <p className="font-sans text-sm text-brand-brown-mid text-center py-12">Loading menu…</p>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                {filtered.map((item) => {
+                  const qty = getQty(item.id);
+                  return (
+                    <motion.div key={item.id} layout className="bg-white rounded-2xl overflow-hidden shadow-sm flex flex-col">
+                      <div className="relative h-32 bg-brand-warm-gray">
+                        <Image src={item.image} alt={item.name} fill sizes="(max-width: 640px) 50vw, 25vw" className="object-cover" />
+                        <div className="absolute top-2 right-2 flex gap-1">
+                          {item.isVeg && <span className="bg-brand-green-herb text-white rounded-full p-1"><Leaf className="w-2.5 h-2.5" /></span>}
+                          {item.isSpicy && <span className="bg-red-500 text-white rounded-full p-1"><Flame className="w-2.5 h-2.5" /></span>}
+                        </div>
                       </div>
-                    </div>
-                    <div className="p-3 flex flex-col flex-1 gap-1">
-                      <p className="font-serif text-sm font-bold text-brand-brown line-clamp-2">{item.name}</p>
-                      <p className="font-sans font-bold text-brand-orange text-sm mt-auto">৳{item.price}</p>
-                      <div className="mt-2">
-                        {qty === 0 ? (
-                          <button onClick={() => adjustQty(item, 1)}
-                            className="w-full bg-brand-orange text-white rounded-xl py-1.5 font-sans text-xs font-semibold">
-                            + Add
-                          </button>
-                        ) : (
-                          <div className="flex items-center justify-between">
-                            <button onClick={() => adjustQty(item, -1)} className="w-7 h-7 rounded-lg border border-brand-warm-gray flex items-center justify-center hover:border-brand-orange"><Minus className="w-3 h-3" /></button>
-                            <span className="font-sans font-bold text-brand-brown text-sm">{qty}</span>
-                            <button onClick={() => adjustQty(item, 1)} className="w-7 h-7 rounded-lg bg-brand-orange text-white flex items-center justify-center"><Plus className="w-3 h-3" /></button>
-                          </div>
-                        )}
+                      <div className="p-3 flex flex-col flex-1 gap-1">
+                        <p className="font-serif text-sm font-bold text-brand-brown line-clamp-2">{item.name}</p>
+                        <p className="font-sans font-bold text-brand-orange text-sm mt-auto">৳{item.price}</p>
+                        <div className="mt-2">
+                          {qty === 0 ? (
+                            <button onClick={() => adjustQty(item, 1)}
+                              className="w-full bg-brand-orange text-white rounded-xl py-1.5 font-sans text-xs font-semibold">
+                              + Add
+                            </button>
+                          ) : (
+                            <div className="flex items-center justify-between">
+                              <button onClick={() => adjustQty(item, -1)} className="w-7 h-7 rounded-lg border border-brand-warm-gray flex items-center justify-center hover:border-brand-orange"><Minus className="w-3 h-3" /></button>
+                              <span className="font-sans font-bold text-brand-brown text-sm">{qty}</span>
+                              <button onClick={() => adjustQty(item, 1)} className="w-7 h-7 rounded-lg bg-brand-orange text-white flex items-center justify-center"><Plus className="w-3 h-3" /></button>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Right — delivery form + cart summary */}
@@ -286,9 +339,10 @@ export function OnlineOrderClient() {
 
               <Button
                 onClick={handlePlaceOrder}
-                className="w-full bg-brand-orange hover:bg-brand-orange-light text-white rounded-full py-5 font-semibold shadow-lg"
+                disabled={placing}
+                className="w-full bg-brand-orange hover:bg-brand-orange-light text-white rounded-full py-5 font-semibold shadow-lg disabled:opacity-60"
               >
-                Place Order
+                {placing ? "Placing Order..." : "Place Order"}
               </Button>
             </div>
           </div>

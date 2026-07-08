@@ -1,6 +1,6 @@
 "use client";
-import { useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
 import Image from "next/image";
 import { Pencil, X, Upload, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,28 +11,121 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { menuItems as staticMenuItems } from "@/lib/mock-data";
+import { useOrderStore } from "@/store/orderStore";
 import { cn } from "@/lib/utils";
 
-type MenuItem = typeof staticMenuItems[0] & { available?: boolean };
+interface MenuItem {
+  id: string;
+  name: string;
+  category: string;
+  price: number;
+  rating?: number;
+  reviews?: number;
+  badge?: string | null;
+  description: string;
+  image: string;
+  isVeg?: boolean;
+  isSpicy?: boolean;
+  available: boolean;
+  appetizers?: string[];
+}
+
+interface ApiAppetizer {
+  id: string;
+  name: string;
+  category: string;
+}
+
+function normalizeMenuItem(raw: Record<string, unknown>): MenuItem {
+  return {
+    id: (raw._id ?? raw.id) as string,
+    name: raw.name as string,
+    category: raw.category as string,
+    price: raw.price as number,
+    rating: raw.rating as number | undefined,
+    reviews: raw.reviews as number | undefined,
+    badge: (raw.badge as string | null) ?? null,
+    description: (raw.description as string) ?? "",
+    image: raw.image as string,
+    isVeg: raw.isVeg as boolean | undefined,
+    isSpicy: raw.isSpicy as boolean | undefined,
+    available: (raw.available as boolean) ?? true,
+    appetizers: Array.isArray(raw.appetizers)
+      ? (raw.appetizers as unknown[]).map((a) => (typeof a === "string" ? a : ((a as Record<string, unknown>)._id as string)))
+      : [],
+  };
+}
 
 export default function AdminMenuPage() {
-  const [items, setItems] = useState<MenuItem[]>(
-    staticMenuItems.map((i) => ({ ...i, available: true }))
-  );
+  const adminAccessToken = useOrderStore((s) => s.adminAccessToken);
+
+  const [items, setItems] = useState<MenuItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [appetizers, setAppetizers] = useState<ApiAppetizer[]>([]);
+
   const [editItem, setEditItem] = useState<MenuItem | null>(null);
   const [draft, setDraft] = useState<MenuItem | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
   // imagePreview holds a local object URL while the user has picked a file
-  // but the real API hasn't been called yet — on save we'd upload the file
+  // but the real upload API hasn't been built on the backend yet — save still
+  // patches all other fields for real.
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!adminAccessToken) return;
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
+      try {
+        const [menuRes, appetizerRes] = await Promise.all([
+          fetch("/api/menu?includeUnavailable=true", {
+            headers: { Authorization: `Bearer ${adminAccessToken}` },
+            cache: "no-store",
+          }),
+          fetch("/api/appetizers?includeUnavailable=true", {
+            headers: { Authorization: `Bearer ${adminAccessToken}` },
+            cache: "no-store",
+          }),
+        ]);
+        const menuData = await menuRes.json();
+        const appetizerData = await appetizerRes.json();
+
+        if (cancelled) return;
+
+        if (menuRes.ok && menuData.success) {
+          setItems((menuData.data ?? []).map(normalizeMenuItem));
+        } else {
+          setLoadError(menuData.error ?? "Failed to load menu items.");
+        }
+
+        if (appetizerRes.ok && appetizerData.success) {
+          setAppetizers((appetizerData.data ?? []).map((raw: Record<string, unknown>) => ({
+            id: (raw._id ?? raw.id) as string,
+            name: raw.name as string,
+            category: raw.category as string,
+          })));
+        }
+      } catch {
+        if (!cancelled) setLoadError("Network error loading menu items.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [adminAccessToken]);
 
   function openEdit(item: MenuItem) {
     setEditItem(item);
     setDraft({ ...item });
     setImagePreview(null);
     setImageFile(null);
+    setSaveError("");
   }
 
   function closeEdit() {
@@ -40,6 +133,7 @@ export default function AdminMenuPage() {
     setDraft(null);
     setImagePreview(null);
     setImageFile(null);
+    setSaveError("");
   }
 
   function handleImagePick(e: React.ChangeEvent<HTMLInputElement>) {
@@ -48,20 +142,78 @@ export default function AdminMenuPage() {
     setImageFile(file);
     const url = URL.createObjectURL(file);
     setImagePreview(url);
-    // When API is wired: upload file here → get back URL → setDraft image
-    setDraft((d) => d ? { ...d, image: url } : d);
+    // Cloudinary upload isn't built on the backend yet — preview only, real
+    // image field is left untouched on save (see saveEdit note below).
   }
 
-  function saveEdit() {
-    if (!draft) return;
-    // When API is ready: if imageFile is set, POST to /api/upload first,
-    // then PATCH /api/menu/[id] with returned image URL + other fields.
-    setItems((prev) => prev.map((i) => i.id === draft.id ? { ...draft } : i));
-    closeEdit();
+  function toggleAppetizerLink(appetizerId: string) {
+    setDraft((d) => {
+      if (!d) return d;
+      const current = d.appetizers ?? [];
+      const next = current.includes(appetizerId)
+        ? current.filter((id) => id !== appetizerId)
+        : [...current, appetizerId];
+      return { ...d, appetizers: next };
+    });
   }
 
-  function toggleAvailable(id: string) {
-    setItems((prev) => prev.map((i) => i.id === id ? { ...i, available: !i.available } : i));
+  async function saveEdit() {
+    if (!draft || !adminAccessToken) return;
+    setSaving(true);
+    setSaveError("");
+    try {
+      // NOTE: image upload (Cloudinary) is not yet built on the backend — if the
+      // admin picked a new file, we don't send a fake blob: URL as the image field.
+      const payload: Record<string, unknown> = {
+        name: draft.name,
+        price: draft.price,
+        badge: draft.badge || null,
+        description: draft.description,
+        isVeg: draft.isVeg,
+        isSpicy: draft.isSpicy,
+        appetizers: draft.appetizers ?? [],
+      };
+
+      const res = await fetch(`/api/menu/${encodeURIComponent(draft.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${adminAccessToken}` },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setSaveError(data.error ?? "Failed to save changes.");
+        setSaving(false);
+        return;
+      }
+      const updated = normalizeMenuItem(data.data);
+      setItems((prev) => prev.map((i) => (i.id === draft.id ? updated : i)));
+      closeEdit();
+    } catch {
+      setSaveError("Network error — could not save changes.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function toggleAvailable(item: MenuItem) {
+    if (!adminAccessToken) return;
+    const nextAvailable = !item.available;
+    // Optimistic
+    setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, available: nextAvailable } : i)));
+    try {
+      const res = await fetch(`/api/menu/${encodeURIComponent(item.id)}/availability`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${adminAccessToken}` },
+        body: JSON.stringify({ available: nextAvailable }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        // revert on failure
+        setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, available: item.available } : i)));
+      }
+    } catch {
+      setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, available: item.available } : i)));
+    }
   }
 
   const currentImage = imagePreview ?? draft?.image;
@@ -132,7 +284,6 @@ export default function AdminMenuPage() {
                       onClick={() => {
                         setImageFile(null);
                         setImagePreview(null);
-                        setDraft((d) => d ? { ...d, image: editItem!.image } : d);
                       }}
                       className="text-brand-brown-mid hover:text-red-500 transition-colors"
                     >
@@ -142,7 +293,7 @@ export default function AdminMenuPage() {
                 )}
 
                 <p className="font-sans text-xs text-brand-brown-mid mt-1.5 opacity-70">
-                  PNG, JPG, WebP or AVIF. Image will be saved when API is connected.
+                  PNG, JPG, WebP or AVIF. Image upload isn&apos;t wired to storage yet — other fields save normally.
                 </p>
               </div>
 
@@ -158,7 +309,7 @@ export default function AdminMenuPage() {
                   </label>
                   <input
                     type={type}
-                    value={(draft as Record<string, unknown>)[key] as string ?? ""}
+                    value={(draft as unknown as Record<string, unknown>)[key] as string ?? ""}
                     onChange={(e) =>
                       setDraft((d) =>
                         d ? { ...d, [key]: type === "number" ? Number(e.target.value) : e.target.value } : d
@@ -191,7 +342,7 @@ export default function AdminMenuPage() {
                   <label key={key} className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={(draft as Record<string, unknown>)[key] as boolean}
+                      checked={(draft as unknown as Record<string, unknown>)[key] as boolean}
                       onChange={(e) => setDraft((d) => d ? { ...d, [key]: e.target.checked } : d)}
                       className="w-4 h-4 accent-brand-orange rounded"
                     />
@@ -199,6 +350,34 @@ export default function AdminMenuPage() {
                   </label>
                 ))}
               </div>
+
+              {/* Linked appetizers */}
+              <div>
+                <label className="block font-sans text-xs font-semibold text-brand-brown-mid uppercase tracking-wider mb-2">
+                  Linked Appetizers
+                </label>
+                {appetizers.length === 0 ? (
+                  <p className="font-sans text-xs text-brand-brown-mid opacity-70">No appetizers created yet.</p>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
+                    {appetizers.map((a) => (
+                      <label key={a.id} className="flex items-center gap-2 cursor-pointer bg-brand-warm-gray/30 rounded-lg px-2.5 py-2">
+                        <input
+                          type="checkbox"
+                          checked={(draft.appetizers ?? []).includes(a.id)}
+                          onChange={() => toggleAppetizerLink(a.id)}
+                          className="w-3.5 h-3.5 accent-brand-orange rounded shrink-0"
+                        />
+                        <span className="font-sans text-xs text-brand-brown truncate">{a.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {saveError && (
+                <p className="text-xs text-red-500 font-sans bg-red-50 border border-red-200 rounded-xl px-3 py-2">{saveError}</p>
+              )}
             </div>
           )}
 
@@ -206,70 +385,78 @@ export default function AdminMenuPage() {
             <Button onClick={closeEdit} variant="outline" className="flex-1 rounded-full">
               Cancel
             </Button>
-            <Button onClick={saveEdit} className="flex-1 bg-brand-orange hover:bg-brand-orange-light text-white rounded-full">
-              Save Changes
+            <Button onClick={saveEdit} disabled={saving} className="flex-1 bg-brand-orange hover:bg-brand-orange-light text-white rounded-full disabled:opacity-60">
+              {saving ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* ── Menu grid ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {items.map((item) => (
-          <motion.div
-            key={item.id}
-            layout
-            className={cn(
-              "bg-white rounded-2xl shadow-sm border border-brand-warm-gray overflow-hidden",
-              !item.available && "opacity-50"
-            )}
-          >
-            <div className="relative h-36 bg-brand-warm-gray">
-              <Image src={item.image} alt={item.name} fill sizes="(max-width: 768px) 50vw, 25vw" className="object-cover" unoptimized />
-              {!item.available && (
-                <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                  <span className="font-sans font-bold text-white text-sm">Unavailable</span>
+      {loadError && (
+        <p className="text-sm text-red-500 font-sans bg-red-50 border border-red-200 rounded-xl px-4 py-2">{loadError}</p>
+      )}
+
+      {loading ? (
+        <p className="font-sans text-sm text-brand-brown-mid text-center py-16">Loading menu items…</p>
+      ) : (
+        /* ── Menu grid ── */
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {items.map((item) => (
+            <motion.div
+              key={item.id}
+              layout
+              className={cn(
+                "bg-white rounded-2xl shadow-sm border border-brand-warm-gray overflow-hidden",
+                !item.available && "opacity-50"
+              )}
+            >
+              <div className="relative h-36 bg-brand-warm-gray">
+                <Image src={item.image} alt={item.name} fill sizes="(max-width: 768px) 50vw, 25vw" className="object-cover" unoptimized />
+                {!item.available && (
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                    <span className="font-sans font-bold text-white text-sm">Unavailable</span>
+                  </div>
+                )}
+                {item.badge && (
+                  <span className="absolute top-2 left-2 bg-brand-orange text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                    {item.badge}
+                  </span>
+                )}
+              </div>
+              <div className="p-3 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="font-serif font-bold text-brand-brown text-sm leading-tight">{item.name}</p>
+                  <span className="font-sans font-bold text-brand-orange text-sm shrink-0">৳{item.price}</span>
                 </div>
-              )}
-              {item.badge && (
-                <span className="absolute top-2 left-2 bg-brand-orange text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                  {item.badge}
-                </span>
-              )}
-            </div>
-            <div className="p-3 space-y-2">
-              <div className="flex items-start justify-between gap-2">
-                <p className="font-serif font-bold text-brand-brown text-sm leading-tight">{item.name}</p>
-                <span className="font-sans font-bold text-brand-orange text-sm shrink-0">৳{item.price}</span>
+                <p className="font-sans text-xs text-brand-brown-mid line-clamp-2">{item.description}</p>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => openEdit(item)}
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 border-brand-warm-gray text-brand-brown rounded-xl text-xs flex items-center gap-1"
+                  >
+                    <Pencil className="w-3 h-3" /> Edit
+                  </Button>
+                  <Button
+                    onClick={() => toggleAvailable(item)}
+                    size="sm"
+                    variant="ghost"
+                    className={cn(
+                      "flex-1 rounded-xl text-xs",
+                      item.available
+                        ? "bg-red-50 text-red-600 hover:bg-red-100 border border-red-200"
+                        : "bg-brand-green-herb text-white hover:bg-brand-green-herb/90"
+                    )}
+                  >
+                    {item.available ? "Disable" : "Enable"}
+                  </Button>
+                </div>
               </div>
-              <p className="font-sans text-xs text-brand-brown-mid line-clamp-2">{item.description}</p>
-              <div className="flex gap-2">
-                <Button
-                  onClick={() => openEdit(item)}
-                  size="sm"
-                  variant="outline"
-                  className="flex-1 border-brand-warm-gray text-brand-brown rounded-xl text-xs flex items-center gap-1"
-                >
-                  <Pencil className="w-3 h-3" /> Edit
-                </Button>
-                <Button
-                  onClick={() => toggleAvailable(item.id)}
-                  size="sm"
-                  variant="ghost"
-                  className={cn(
-                    "flex-1 rounded-xl text-xs",
-                    item.available
-                      ? "bg-red-50 text-red-600 hover:bg-red-100 border border-red-200"
-                      : "bg-brand-green-herb text-white hover:bg-brand-green-herb/90"
-                  )}
-                >
-                  {item.available ? "Disable" : "Enable"}
-                </Button>
-              </div>
-            </div>
-          </motion.div>
-        ))}
-      </div>
+            </motion.div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

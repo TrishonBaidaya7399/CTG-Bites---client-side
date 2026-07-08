@@ -1,12 +1,12 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useOrderStore } from "@/store/orderStore";
-import { cn } from "@/lib/utils";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -72,7 +72,12 @@ export default function AdminLoginPage() {
               </div>
 
               <div>
-                <label className="block font-sans text-xs font-semibold text-brand-brown-mid uppercase tracking-wider mb-1.5">Password</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block font-sans text-xs font-semibold text-brand-brown-mid uppercase tracking-wider">Password</label>
+                  <Link href="/admin/forgot-password" className="font-sans text-xs font-semibold text-brand-orange hover:text-brand-orange-light transition-colors">
+                    Forgot password?
+                  </Link>
+                </div>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-brown-mid" />
                   <input

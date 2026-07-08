@@ -5,6 +5,7 @@ import Image from "next/image";
 import { Clock, CheckCircle2, X, Bike, Tablet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useOrderStore } from "@/store/orderStore";
+import { useSocket } from "@/hooks/useSocket";
 import { OrderStatusBadge } from "@/components/order/OrderStatusBadge";
 import { CountdownTimer } from "@/components/order/CountdownTimer";
 import { cn } from "@/lib/utils";
@@ -217,9 +218,61 @@ function OrderCard({ order }: { order: Order }) {
   );
 }
 
-export default function AdminDashboard() {
-  const { orders } = useOrderStore();
+interface DashboardReport {
+  ordersToday: number;
+  pending: number;
+  revenueToday: number;
+  activeTables: number;
+}
 
+export default function AdminDashboard() {
+  const { orders, adminAccessToken } = useOrderStore();
+  const [report, setReport] = useState<DashboardReport | null>(null);
+  const socket = useSocket({ accessToken: adminAccessToken });
+
+  // Live counts pushed by the server whenever an order changes — cheaper than re-fetching the report.
+  useEffect(() => {
+    if (!socket) return;
+    function handleCounts(payload: { pendingCount: number; activeTableCount: number; onlineActiveCount: number; tableActiveCount: number }) {
+      setReport((prev) => ({
+        ordersToday: prev?.ordersToday ?? 0,
+        revenueToday: prev?.revenueToday ?? 0,
+        pending: payload.pendingCount,
+        activeTables: payload.activeTableCount,
+      }));
+    }
+    socket.on("dashboard:counts", handleCounts);
+    return () => { socket.off("dashboard:counts", handleCounts); };
+  }, [socket]);
+
+  useEffect(() => {
+    if (!adminAccessToken) return;
+    let cancelled = false;
+
+    async function loadReport() {
+      try {
+        const res = await fetch("/api/reports/dashboard", {
+          headers: { Authorization: `Bearer ${adminAccessToken}` },
+          cache: "no-store",
+        });
+        const data = await res.json();
+        if (!cancelled && res.ok && data.success) {
+          setReport({
+            ordersToday: data.ordersToday ?? 0,
+            pending: data.pending ?? 0,
+            revenueToday: data.revenueToday ?? 0,
+            activeTables: data.activeTables ?? 0,
+          });
+        }
+      } catch {
+        // fall back to client-derived stats below
+      }
+    }
+    loadReport();
+    return () => { cancelled = true; };
+  }, [adminAccessToken, orders]);
+
+  // Client-derived fallback (also used to keep counts live between report refreshes via socket events)
   const today = orders.filter((o) => {
     const d = new Date(o.createdAt);
     const now = new Date();
@@ -234,10 +287,10 @@ export default function AdminDashboard() {
   const tableActive = orders.filter((o) => o.mode === "table" && !["delivered","cancelled"].includes(o.status));
 
   const stats = [
-    { label: "Orders Today", value: today.length, icon: Clock, color: "text-blue-600" },
-    { label: "Pending", value: pending.length, icon: Clock, color: "text-brand-orange", pulse: true },
-    { label: "Revenue Today", value: `৳${revenueToday}`, icon: CheckCircle2, color: "text-brand-green-herb" },
-    { label: "Active Tables", value: activeTables, icon: Tablet, color: "text-purple-600" },
+    { label: "Orders Today", value: report?.ordersToday ?? today.length, icon: Clock, color: "text-blue-600" },
+    { label: "Pending", value: report?.pending ?? pending.length, icon: Clock, color: "text-brand-orange", pulse: true },
+    { label: "Revenue Today", value: `৳${report?.revenueToday ?? revenueToday}`, icon: CheckCircle2, color: "text-brand-green-herb" },
+    { label: "Active Tables", value: report?.activeTables ?? activeTables, icon: Tablet, color: "text-purple-600" },
   ];
 
   return (

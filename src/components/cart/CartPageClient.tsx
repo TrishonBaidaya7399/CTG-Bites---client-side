@@ -44,11 +44,13 @@ export function CartPageClient() {
   const [couponMsg, setCouponMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [form, setForm] = useState<DeliveryForm>(EMPTY_FORM);
   const [errors, setErrors] = useState<Partial<DeliveryForm>>({});
-  const [orderRef] = useState(() => "CTG-" + Math.random().toString(36).slice(2, 8).toUpperCase());
+  const [orderRef, setOrderRef] = useState<string | null>(null);
+  const [placing, setPlacing] = useState(false);
+  const [placeError, setPlaceError] = useState("");
 
-  function handleApplyCoupon() {
+  async function handleApplyCoupon() {
     if (!couponInput.trim()) return;
-    const result = applyCoupon(couponInput);
+    const result = await applyCoupon(couponInput);
     setCouponMsg({ ok: result.ok, text: result.message });
     if (result.ok) setCouponInput("");
   }
@@ -63,29 +65,43 @@ export function CartPageClient() {
     return Object.keys(e).length === 0;
   }
 
-  function handlePlaceOrder() {
+  async function handlePlaceOrder() {
     if (!validate()) return;
-    placeOrder({
-      id: orderRef,
-      mode: "online",
-      type: "delivery",
-      status: "pending",
-      customerName: form.name,
-      customerPhone: form.phone,
-      customerAddress: `${form.address}, ${form.area}`,
-      items: items.map((i) => ({
-        menuItemId: i.id, name: i.name, price: i.price, quantity: i.quantity, image: i.image,
-      })),
-      note: form.notes || undefined,
-      total: total(),
-      estimatedMinutes: 10,
-      createdAt: new Date().toISOString(),
-    });
-    clearCart();
-    setStep("success");
+    setPlacing(true);
+    setPlaceError("");
+    try {
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "online",
+          type: "delivery",
+          customerName: form.name,
+          customerPhone: form.phone,
+          customerAddress: `${form.address}, ${form.area}`,
+          items: items.map((i) => ({ menuItemId: i.id, quantity: i.quantity })),
+          note: form.notes || undefined,
+          couponCode: couponCode || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setPlaceError(data.error ?? "Could not place order. Please try again.");
+        setPlacing(false);
+        return;
+      }
+      placeOrder(data.order);
+      setOrderRef(data.order.id);
+      clearCart();
+      setStep("success");
+    } catch {
+      setPlaceError("Network error — could not place order.");
+    } finally {
+      setPlacing(false);
+    }
   }
 
-  if (step === "success") {
+  if (step === "success" && orderRef) {
     return <SuccessView orderRef={orderRef} form={form} />;
   }
 
@@ -354,11 +370,15 @@ export function CartPageClient() {
                   </div>
                 </div>
 
+                {placeError && (
+                  <p className="text-xs text-red-500 font-sans bg-red-50 border border-red-200 rounded-xl px-4 py-2">{placeError}</p>
+                )}
                 <Button
                   onClick={handlePlaceOrder}
-                  className="w-full bg-brand-orange hover:bg-brand-orange-light text-white rounded-full py-5 font-semibold shadow-lg flex items-center justify-center gap-2"
+                  disabled={placing}
+                  className="w-full bg-brand-orange hover:bg-brand-orange-light text-white rounded-full py-5 font-semibold shadow-lg flex items-center justify-center gap-2 disabled:opacity-60"
                 >
-                  <Package className="w-4 h-4" /> Place Order (COD)
+                  <Package className="w-4 h-4" /> {placing ? "Placing Order..." : "Place Order (COD)"}
                 </Button>
               </div>
             </motion.div>

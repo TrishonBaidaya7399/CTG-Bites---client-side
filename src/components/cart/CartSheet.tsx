@@ -27,9 +27,9 @@ export function CartSheet({ open, onClose }: CartSheetProps) {
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
 
-  function handleApplyCoupon() {
+  async function handleApplyCoupon() {
     if (!couponInput.trim()) return;
-    const result = applyCoupon(couponInput);
+    const result = await applyCoupon(couponInput);
     setCouponMsg({ ok: result.ok, text: result.message });
     if (result.ok) setCouponInput("");
   }

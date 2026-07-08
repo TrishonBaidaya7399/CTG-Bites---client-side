@@ -1,14 +1,23 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { Minus, Plus, ShoppingBag, X, Clock, CheckCircle2, Flame, Leaf, Tag, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { menuCategories, menuItems } from "@/lib/mock-data";
 import { useOrderStore } from "@/store/orderStore";
-import { COUPONS } from "@/store/cart";
+import { useSocket } from "@/hooks/useSocket";
 import { cn } from "@/lib/utils";
-import type { OrderType } from "@/types/order";
+import type { OrderType, Order, OrderStatus } from "@/types/order";
+
+interface ApiMenuItem {
+  id: string;
+  name: string;
+  category: string;
+  price: number;
+  image: string;
+  isVeg?: boolean;
+  isSpicy?: boolean;
+}
 
 type LocalItem = { id: string; name: string; price: number; image: string; qty: number };
 
@@ -27,29 +36,71 @@ function LiveClock() {
 }
 
 export function TableOrderClient() {
-  const { placeOrder, setActiveTableOrder, openTimerModal, maximizeTimerModal, cancelOrder, orders } = useOrderStore();
+  const { placeOrder, setActiveTableOrder, openTimerModal, maximizeTimerModal, cancelOrder, patchOrder, orders } = useOrderStore();
+  const socket = useSocket();
 
-  // The order this specific device placed (tracked by ID in local state)
-  const [myOrderId, setMyOrderId] = useState<string | null>(null);
-  // Ref so the poll effect can always see the latest value without re-subscribing
-  const myOrderIdRef = useRef<string | null>(null);
-  myOrderIdRef.current = myOrderId;
+  const [menuItems, setMenuItems] = useState<ApiMenuItem[]>([]);
+  const [categories, setCategories] = useState<string[]>(["All"]);
 
-  // Poll the store every 3s: if this device's order just got accepted, pop the modal
   useEffect(() => {
-    const interval = setInterval(() => {
-      const id = myOrderIdRef.current;
-      if (!id) return;
-      const order = useOrderStore.getState().orders.find((o) => o.id === id);
-      if (order && (order.status === "accepted" || order.status === "preparing" || order.status === "ready")) {
-        setActiveTableOrder(order);
+    async function loadMenu() {
+      const res = await fetch("/api/menu");
+      const data = await res.json();
+      if (res.ok && data.success) {
+        const items: ApiMenuItem[] = (data.data ?? []).map((raw: Record<string, unknown>) => ({
+          id: (raw._id ?? raw.id) as string,
+          name: raw.name as string,
+          category: raw.category as string,
+          price: raw.price as number,
+          image: raw.image as string,
+          isVeg: raw.isVeg as boolean | undefined,
+          isSpicy: raw.isSpicy as boolean | undefined,
+        }));
+        setMenuItems(items);
+        setCategories(["All", ...Array.from(new Set(items.map((i) => i.category)))]);
+      }
+    }
+    loadMenu();
+  }, []);
+
+  // The order this specific device placed (tracked by order number in local state)
+  const [myOrderId, setMyOrderId] = useState<string | null>(null);
+
+  // Join the tracking room for this order and listen for real-time status changes.
+  useEffect(() => {
+    if (!socket || !myOrderId) return;
+    const trackedOrderId = myOrderId;
+
+    socket.emit("join:order", { orderNumber: trackedOrderId });
+
+    function handleAccepted(payload: { orderNumber: string; status: OrderStatus; estimatedMinutes: number; acceptedAt: string }) {
+      if (payload.orderNumber !== trackedOrderId) return;
+      patchOrder(payload.orderNumber, {
+        status: payload.status,
+        estimatedMinutes: payload.estimatedMinutes,
+        acceptedAt: payload.acceptedAt,
+      });
+      const updated = useOrderStore.getState().orders.find((o) => o.id === payload.orderNumber);
+      if (updated) {
+        setActiveTableOrder(updated);
         openTimerModal();
-        // Stop polling — modal is open
         setMyOrderId(null);
       }
-    }, 3000);
-    return () => clearInterval(interval);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    }
+
+    function handleStatusChanged(payload: { orderNumber: string; status: OrderStatus }) {
+      if (payload.orderNumber !== trackedOrderId) return;
+      patchOrder(payload.orderNumber, { status: payload.status });
+    }
+
+    socket.on("order:accepted", handleAccepted);
+    socket.on("order:status-changed", handleStatusChanged);
+
+    return () => {
+      socket.off("order:accepted", handleAccepted);
+      socket.off("order:status-changed", handleStatusChanged);
+    };
+  }, [socket, myOrderId, patchOrder, setActiveTableOrder, openTimerModal]);
 
   const [activeCategory, setActiveCategory] = useState<string>("All");
   const [localItems, setLocalItems] = useState<LocalItem[]>([]);
@@ -61,9 +112,11 @@ export function TableOrderClient() {
   const [note, setNote] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [success, setSuccess] = useState(false);
+  const [placing, setPlacing] = useState(false);
   const [couponInput, setCouponInput] = useState("");
   const [couponCode, setCouponCode] = useState("");
   const [couponDiscount, setCouponDiscount] = useState(0); // percentage
+  const [couponDiscountAmount, setCouponDiscountAmount] = useState(0);
   const [couponMsg, setCouponMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   // The live order for the active modal (derived from store)
@@ -78,30 +131,41 @@ export function TableOrderClient() {
 
   const totalQty = localItems.reduce((s, i) => s + i.qty, 0);
   const subtotal = localItems.reduce((s, i) => s + i.price * i.qty, 0);
-  const discountAmount = Math.round((subtotal * couponDiscount) / 100);
+  const discountAmount = couponCode ? couponDiscountAmount : 0;
   const totalPrice = subtotal - discountAmount;
 
-  function applyCoupon() {
+  async function applyCoupon() {
     const upper = couponInput.trim().toUpperCase();
-    const pct = COUPONS[upper];
-    if (pct === undefined) {
-      setCouponMsg({ ok: false, text: "Invalid coupon code." });
-      return;
+    try {
+      const res = await fetch("/api/coupons/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: upper, subtotal }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setCouponMsg({ ok: false, text: data?.message ?? "Invalid coupon code." });
+        return;
+      }
+      setCouponCode(upper);
+      setCouponDiscount(data.discountPercent ?? 0);
+      setCouponDiscountAmount(data.discountAmount ?? 0);
+      setCouponMsg({ ok: true, text: `${data.discountPercent}% discount applied!` });
+      setCouponInput("");
+    } catch {
+      setCouponMsg({ ok: false, text: "Could not validate coupon. Try again." });
     }
-    setCouponCode(upper);
-    setCouponDiscount(pct);
-    setCouponMsg({ ok: true, text: `${pct}% discount applied!` });
-    setCouponInput("");
   }
 
   function removeCoupon() {
     setCouponCode("");
     setCouponDiscount(0);
+    setCouponDiscountAmount(0);
     setCouponInput("");
     setCouponMsg(null);
   }
 
-  function adjustQty(item: typeof menuItems[0], delta: number) {
+  function adjustQty(item: ApiMenuItem, delta: number) {
     setLocalItems((prev) => {
       const existing = prev.find((i) => i.id === item.id);
       if (!existing) {
@@ -131,45 +195,57 @@ export function TableOrderClient() {
     return Object.keys(e).length === 0;
   }
 
-  function handlePlaceOrder() {
+  async function handlePlaceOrder() {
     if (!validate()) return;
+    setPlacing(true);
 
-    const orderId = "TBL-" + Math.random().toString(36).slice(2, 7).toUpperCase();
-    const order = {
-      id: orderId,
-      mode: "table" as const,
-      type: orderType,
-      status: "pending" as const,
-      tableNumber,
-      customerName: customerName.trim() || `${tableNumber} Guest`,
-      customerPhone: customerPhone || undefined,
-      items: localItems.map((i) => ({
-        menuItemId: i.id, name: i.name, price: i.price, quantity: i.qty, image: i.image,
-      })),
-      note: note.trim() || undefined,
-      total: totalPrice,
-      estimatedMinutes: 10,
-      createdAt: new Date().toISOString(),
-    };
+    try {
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "table",
+          type: orderType,
+          tableNumber,
+          customerName: customerName.trim() || `${tableNumber} Guest`,
+          customerPhone: customerPhone || undefined,
+          items: localItems.map((i) => ({ menuItemId: i.id, quantity: i.qty })),
+          note: note.trim() || undefined,
+          couponCode: couponCode || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setErrors({ items: data.error ?? "Could not place order. Please try again." });
+        setPlacing(false);
+        return;
+      }
 
-    placeOrder(order);
-    // Track this device's order — modal opens when admin accepts it
-    setMyOrderId(orderId);
-    setSuccess(true);
+      const order: Order = data.order;
+      placeOrder(order);
+      // Track this device's order — modal opens when kitchen accepts it (real-time via socket)
+      setMyOrderId(order.id);
+      setSuccess(true);
 
-    setTimeout(() => {
-      setSuccess(false);
-      setSheetOpen(false);
-      setLocalItems([]);
-      setTableNumber("");
-      setCustomerName("");
-      setCustomerPhone("");
-      setNote("");
-      setCouponInput("");
-      setCouponCode("");
-      setCouponDiscount(0);
-      setCouponMsg(null);
-    }, 2200);
+      setTimeout(() => {
+        setSuccess(false);
+        setSheetOpen(false);
+        setLocalItems([]);
+        setTableNumber("");
+        setCustomerName("");
+        setCustomerPhone("");
+        setNote("");
+        setCouponInput("");
+        setCouponCode("");
+        setCouponDiscount(0);
+        setCouponDiscountAmount(0);
+        setCouponMsg(null);
+      }, 2200);
+    } catch {
+      setErrors({ items: "Network error — could not place order." });
+    } finally {
+      setPlacing(false);
+    }
   }
 
   return (
@@ -215,7 +291,7 @@ export function TableOrderClient() {
       {/* Category tabs */}
       <div className="bg-white border-b border-brand-warm-gray px-4 overflow-x-auto">
         <div className="flex gap-1 py-3 min-w-max">
-          {menuCategories.map((cat) => (
+          {categories.map((cat) => (
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
@@ -312,7 +388,7 @@ export function TableOrderClient() {
                 setCustomerPhone("");
                 setNote("");
                 setErrors({});
-                setCouponInput(""); setCouponCode(""); setCouponDiscount(0); setCouponMsg(null);
+                setCouponInput(""); setCouponCode(""); setCouponDiscount(0); setCouponDiscountAmount(0); setCouponMsg(null);
               }}
             />
             <motion.div
@@ -357,7 +433,7 @@ export function TableOrderClient() {
                       setCustomerPhone("");
                       setNote("");
                       setErrors({});
-                      setCouponInput(""); setCouponCode(""); setCouponDiscount(0); setCouponMsg(null);
+                      setCouponInput(""); setCouponCode(""); setCouponDiscount(0); setCouponDiscountAmount(0); setCouponMsg(null);
                     }}
                     className="text-brand-brown-mid hover:text-red-500 transition-colors p-1"
                     aria-label="Discard order"
@@ -560,9 +636,10 @@ export function TableOrderClient() {
               <div className="shrink-0 px-5 py-4 border-t border-brand-warm-gray bg-white">
                 <Button
                   onClick={handlePlaceOrder}
-                  className="w-full bg-brand-orange hover:bg-brand-orange-light text-white rounded-full py-5 font-semibold text-base shadow-xl flex items-center justify-center gap-3"
+                  disabled={placing}
+                  className="w-full bg-brand-orange hover:bg-brand-orange-light text-white rounded-full py-5 font-semibold text-base shadow-xl flex items-center justify-center gap-3 disabled:opacity-60"
                 >
-                  Place Order
+                  {placing ? "Placing Order..." : "Place Order"}
                   <span className="border-l border-white/30 pl-3 font-bold">৳{totalPrice}</span>
                 </Button>
               </div>

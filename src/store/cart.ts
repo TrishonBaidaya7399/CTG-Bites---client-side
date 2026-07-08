@@ -9,24 +9,17 @@ export interface CartItem {
   quantity: number;
 }
 
-export const COUPONS: Record<string, number> = {
-  CTGBITES10: 10,
-  WELCOME15:  15,
-  FEAST20:    20,
-  BHORTA5:    5,
-  NEWUSER25:  25,
-};
-
 interface CartState {
   items: CartItem[];
   couponCode: string;
-  couponDiscount: number; // percentage
+  couponDiscount: number; // percentage, from backend response
+  couponDiscountAmount: number; // absolute amount, from backend response (source of truth)
 
   addItem: (item: Omit<CartItem, "quantity">) => void;
   removeItem: (id: string) => void;
   updateQty: (id: string, qty: number) => void;
   clearCart: () => void;
-  applyCoupon: (code: string) => { ok: boolean; message: string };
+  applyCoupon: (code: string) => Promise<{ ok: boolean; message: string }>;
   removeCoupon: () => void;
 
   // Derived
@@ -42,6 +35,7 @@ export const useCartStore = create<CartState>()(
       items: [],
       couponCode: "",
       couponDiscount: 0,
+      couponDiscountAmount: 0,
 
       addItem(item) {
         set((s) => {
@@ -72,21 +66,38 @@ export const useCartStore = create<CartState>()(
       },
 
       clearCart() {
-        set({ items: [], couponCode: "", couponDiscount: 0 });
+        set({ items: [], couponCode: "", couponDiscount: 0, couponDiscountAmount: 0 });
       },
 
-      applyCoupon(code) {
+      async applyCoupon(code) {
         const upper = code.trim().toUpperCase();
-        const discount = COUPONS[upper];
-        if (discount === undefined) {
-          return { ok: false, message: "Invalid coupon code." };
+        const subtotal = get().subtotal();
+
+        try {
+          const res = await fetch("/api/coupons/validate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ code: upper, subtotal }),
+          });
+          const data = await res.json();
+
+          if (!res.ok || !data.ok) {
+            return { ok: false, message: data?.message ?? "Invalid coupon code." };
+          }
+
+          set({
+            couponCode: upper,
+            couponDiscount: data.discountPercent ?? 0,
+            couponDiscountAmount: data.discountAmount ?? 0,
+          });
+          return { ok: true, message: `${data.discountPercent}% discount applied!` };
+        } catch {
+          return { ok: false, message: "Could not validate coupon. Try again." };
         }
-        set({ couponCode: upper, couponDiscount: discount });
-        return { ok: true, message: `${discount}% discount applied!` };
       },
 
       removeCoupon() {
-        set({ couponCode: "", couponDiscount: 0 });
+        set({ couponCode: "", couponDiscount: 0, couponDiscountAmount: 0 });
       },
 
       subtotal() {
@@ -94,7 +105,7 @@ export const useCartStore = create<CartState>()(
       },
 
       discountAmount() {
-        return Math.round((get().subtotal() * get().couponDiscount) / 100);
+        return get().couponDiscountAmount;
       },
 
       total() {

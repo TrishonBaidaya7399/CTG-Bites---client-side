@@ -3,9 +3,10 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { LayoutDashboard, ShoppingBag, UtensilsCrossed, Tablet, LogOut, Menu, X, ExternalLink, Bell } from "lucide-react";
+import { LayoutDashboard, ShoppingBag, UtensilsCrossed, Tablet, LogOut, Menu, X, ExternalLink, Bell, FolderTree, Soup } from "lucide-react";
 import { useOrderStore } from "@/store/orderStore";
 import { useAdminSound } from "@/hooks/useAdminSound";
+import { AdminOrderSyncProvider } from "@/components/order/AdminOrderSyncProvider";
 import { cn } from "@/lib/utils";
 
 // Mounted only inside the authenticated shell — keeps sound away from login page and client site
@@ -19,10 +20,15 @@ const navItems = [
   { label: "Online Orders", href: "/admin/orders/online", icon: ShoppingBag },
   { label: "Table Orders",  href: "/admin/orders/table",  icon: Tablet },
   { label: "Menu Items",    href: "/admin/menu",          icon: UtensilsCrossed },
+  { label: "Appetizers",    href: "/admin/appetizers",    icon: Soup },
+  { label: "Categories",    href: "/admin/categories",    icon: FolderTree },
   { label: "Settings",      href: "/admin/settings",      icon: Bell },
 ];
 
 const noop = () => () => {};
+
+// Routes reachable without an authenticated admin session
+const PUBLIC_ADMIN_ROUTES = ["/admin/login", "/admin/forgot-password"];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -30,16 +36,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const { isAdminAuthenticated, adminLogout, adminUser } = useOrderStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const mounted = useSyncExternalStore(noop, () => true, () => false);
+  const isPublicRoute = PUBLIC_ADMIN_ROUTES.includes(pathname);
 
   useEffect(() => {
-    if (!isAdminAuthenticated && pathname !== "/admin/login") {
+    if (!isAdminAuthenticated && !isPublicRoute) {
       router.replace("/admin/login");
     }
-  }, [isAdminAuthenticated, pathname, router]);
+  }, [isAdminAuthenticated, isPublicRoute, router]);
 
   if (!mounted) return null;
-  if (!isAdminAuthenticated && pathname !== "/admin/login") return null;
-  if (pathname === "/admin/login") return <>{children}</>;
+  if (!isAdminAuthenticated && !isPublicRoute) return null;
+  if (isPublicRoute) return <>{children}</>;
 
   function handleLogout() {
     adminLogout();
@@ -146,6 +153,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         </header>
         <AdminSoundManager />
+        <AdminOrderSyncProvider />
         <main className="flex-1 p-4 md:p-6">{children}</main>
       </div>
     </div>
