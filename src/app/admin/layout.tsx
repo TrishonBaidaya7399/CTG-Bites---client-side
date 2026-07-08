@@ -3,7 +3,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { LayoutDashboard, ShoppingBag, UtensilsCrossed, Tablet, LogOut, Menu, X, ExternalLink } from "lucide-react";
+import { LayoutDashboard, ShoppingBag, UtensilsCrossed, Tablet, LogOut, Menu, X, ExternalLink, Bell } from "lucide-react";
 import { useOrderStore } from "@/store/orderStore";
 import { useAdminSound } from "@/hooks/useAdminSound";
 import { cn } from "@/lib/utils";
@@ -19,6 +19,7 @@ const navItems = [
   { label: "Online Orders", href: "/admin/orders/online", icon: ShoppingBag },
   { label: "Table Orders",  href: "/admin/orders/table",  icon: Tablet },
   { label: "Menu Items",    href: "/admin/menu",          icon: UtensilsCrossed },
+  { label: "Settings",      href: "/admin/settings",      icon: Bell },
 ];
 
 const noop = () => () => {};
