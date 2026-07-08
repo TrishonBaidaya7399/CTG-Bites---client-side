@@ -3,12 +3,23 @@ import { persist } from "zustand/middleware";
 import type { Order, OrderStatus } from "@/types/order";
 import { mockOrders } from "@/lib/mock-orders";
 
+const STAFF_ROLES = ["owner", "manager", "staff", "rider"];
+
+export interface AdminUser {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+}
+
 interface OrderState {
   orders: Order[];
   activeTableOrder: Order | null;
   timerModalOpen: boolean;
   timerModalMinimized: boolean;
   isAdminAuthenticated: boolean;
+  adminUser: AdminUser | null;
+  adminAccessToken: string | null;
 
   // Order actions
   placeOrder: (order: Order) => void;
@@ -24,7 +35,7 @@ interface OrderState {
   maximizeTimerModal: () => void;
 
   // Admin auth
-  adminLogin: (email: string, password: string) => boolean;
+  adminLogin: (email: string, password: string) => Promise<boolean>;
   adminLogout: () => void;
 }
 
@@ -36,6 +47,8 @@ export const useOrderStore = create<OrderState>()(
       timerModalOpen: false,
       timerModalMinimized: false,
       isAdminAuthenticated: false,
+      adminUser: null,
+      adminAccessToken: null,
 
       placeOrder(order) {
         set((s) => ({ orders: [order, ...s.orders] }));
@@ -89,17 +102,34 @@ export const useOrderStore = create<OrderState>()(
         set({ timerModalMinimized: false, timerModalOpen: true });
       },
 
-      adminLogin(email, password) {
-        // Imported inline to avoid circular dep — validated here
-        if (email === "admin@ctgbites.com" && password === "ctgbites2026") {
-          set({ isAdminAuthenticated: true });
+      async adminLogin(email, password) {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+
+        try {
+          const res = await fetch(`${apiUrl}/api/auth/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password }),
+          });
+          const data = await res.json();
+
+          if (!res.ok || !STAFF_ROLES.includes(data.user?.role)) {
+            return false;
+          }
+
+          set({
+            isAdminAuthenticated: true,
+            adminUser: data.user,
+            adminAccessToken: data.accessToken,
+          });
           return true;
+        } catch {
+          return false;
         }
-        return false;
       },
 
       adminLogout() {
-        set({ isAdminAuthenticated: false });
+        set({ isAdminAuthenticated: false, adminUser: null, adminAccessToken: null });
       },
     }),
     {
@@ -111,6 +141,8 @@ export const useOrderStore = create<OrderState>()(
         timerModalOpen: s.timerModalOpen,
         timerModalMinimized: s.timerModalMinimized,
         isAdminAuthenticated: s.isAdminAuthenticated,
+        adminUser: s.adminUser,
+        adminAccessToken: s.adminAccessToken,
       }),
     }
   )

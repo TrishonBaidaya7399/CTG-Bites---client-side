@@ -26,7 +26,7 @@ const noop = () => () => {};
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { isAdminAuthenticated, adminLogout } = useOrderStore();
+  const { isAdminAuthenticated, adminLogout, adminUser } = useOrderStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const mounted = useSyncExternalStore(noop, () => true, () => false);
 
@@ -130,7 +130,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           {/* Right side */}
           <div className="ml-auto flex items-center gap-3">
             <span className="font-sans text-xs text-brand-brown-mid hidden md:block">
-              admin@ctgbites.com
+              {adminUser?.email ?? ""}
             </span>
 
             {/* Back to site button */}

@@ -16,9 +16,12 @@ export default function AdminLoginPage() {
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState("");
   const [shake, setShake] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  function handleLogin() {
-    const ok = adminLogin(email, password);
+  async function handleLogin() {
+    setLoading(true);
+    const ok = await adminLogin(email, password);
+    setLoading(false);
     if (ok) {
       router.push("/admin/dashboard");
     } else {
@@ -92,14 +95,14 @@ export default function AdminLoginPage() {
                 </motion.p>
               )}
 
-              <Button onClick={handleLogin} className="w-full bg-brand-orange hover:bg-brand-orange-light text-white rounded-full py-5 font-semibold shadow-lg">
-                Login to Dashboard
+              <Button
+                onClick={handleLogin}
+                disabled={loading}
+                className="w-full bg-brand-orange hover:bg-brand-orange-light text-white rounded-full py-5 font-semibold shadow-lg disabled:opacity-60"
+              >
+                {loading ? "Signing in..." : "Login to Dashboard"}
               </Button>
             </div>
-
-            <p className="text-center font-sans text-xs text-brand-brown-mid">
-              Hint: admin@ctgbites.com / ctgbites2026
-            </p>
           </div>
         </motion.div>
       </motion.div>
