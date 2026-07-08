@@ -73,7 +73,7 @@ export function TimerModal() {
   const readyAudioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    readyAudioRef.current = new Audio("/sounds/order-ready.wav");
+    readyAudioRef.current = new Audio("/sounds/order-ready.mp3");
     readyAudioRef.current.preload = "auto";
   }, []);
 
