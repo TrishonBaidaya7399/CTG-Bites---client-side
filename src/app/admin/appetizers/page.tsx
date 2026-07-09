@@ -273,7 +273,7 @@ export default function AdminAppetizersPage() {
                 !item.available && "opacity-50"
               )}
             >
-              <div className="relative h-32 bg-brand-warm-gray">
+              <div className="relative aspect-square bg-brand-warm-gray">
                 {item.image ? (
                   <Image src={item.image} alt={item.name} fill sizes="(max-width: 768px) 50vw, 25vw" className="object-cover" unoptimized />
                 ) : (
