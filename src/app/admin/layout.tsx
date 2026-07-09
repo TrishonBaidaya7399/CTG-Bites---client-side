@@ -3,7 +3,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { LayoutDashboard, ShoppingBag, UtensilsCrossed, Tablet, LogOut, Menu, X, ExternalLink, Bell, FolderTree, Soup } from "lucide-react";
+import { LayoutDashboard, ShoppingBag, UtensilsCrossed, Tablet, LogOut, Menu, X, ExternalLink, Bell, FolderTree, Soup, Users, ShieldCheck } from "lucide-react";
 import { useOrderStore } from "@/store/orderStore";
 import { useAdminSound } from "@/hooks/useAdminSound";
 import { AdminOrderSyncProvider } from "@/components/order/AdminOrderSyncProvider";
@@ -15,6 +15,9 @@ function AdminSoundManager() {
   return null;
 }
 
+// `roles` omitted = visible to every authenticated admin role. Mirrors the backend's
+// requirePermission gates for users:manage (owner/manager) and the owner-only
+// permissions endpoint — a role that can't call the API shouldn't see the nav item.
 const navItems = [
   { label: "Dashboard",     href: "/admin/dashboard", icon: LayoutDashboard },
   { label: "Online Orders", href: "/admin/orders/online", icon: ShoppingBag },
@@ -22,6 +25,8 @@ const navItems = [
   { label: "Menu Items",    href: "/admin/menu",          icon: UtensilsCrossed },
   { label: "Appetizers",    href: "/admin/appetizers",    icon: Soup },
   { label: "Categories",    href: "/admin/categories",    icon: FolderTree },
+  { label: "Staff & Roles", href: "/admin/staff",         icon: Users,       roles: ["owner", "manager"] },
+  { label: "Permissions",   href: "/admin/permissions",   icon: ShieldCheck, roles: ["owner"] },
   { label: "Settings",      href: "/admin/settings",      icon: Bell },
 ];
 
@@ -84,7 +89,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         {/* Nav */}
         <nav className="flex-1 px-3 py-4 space-y-1">
-          {navItems.map(({ label, href, icon: Icon }) => {
+          {navItems
+            .filter((item) => !item.roles || item.roles.includes(adminUser?.role ?? ""))
+            .map(({ label, href, icon: Icon }) => {
             const active = pathname.startsWith(href);
             return (
               <Link
