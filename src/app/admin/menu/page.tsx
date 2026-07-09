@@ -424,7 +424,7 @@ export default function AdminMenuPage() {
                 !item.available && "opacity-50"
               )}
             >
-              <div className="relative h-36 bg-brand-warm-gray">
+              <div className="relative aspect-square bg-brand-warm-gray">
                 <Image src={item.image} alt={item.name} fill sizes="(max-width: 768px) 50vw, 25vw" className="object-cover" unoptimized />
                 {!item.available && (
                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
