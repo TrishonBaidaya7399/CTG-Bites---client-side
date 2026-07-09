@@ -6,6 +6,7 @@ import { Minus } from "lucide-react";
 import { useOrderStore } from "@/store/orderStore";
 import { CountdownTimer } from "./CountdownTimer";
 import { OrderStatusBadge } from "./OrderStatusBadge";
+import { ReviewModal } from "./ReviewModal";
 
 const LINGER_AFTER_TIMEOUT_SECS = 5 * 60;
 
@@ -70,6 +71,7 @@ export function TimerModal() {
   // ── Status transition tracking ────────────────────────────────────────────
   const prevStatusRef = useRef<string | null>(null);
   const [showCelebration, setShowCelebration] = useState(false);
+  const [showReview, setShowReview] = useState(false);
   const readyAudioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
@@ -100,12 +102,10 @@ export function TimerModal() {
         }, 2500);
       }
 
-      // Auto-vanish once delivered — give the customer a moment to see the "Delivered!" state
+      // Once delivered, give the customer a moment to see the "Delivered!" state,
+      // then swap the tracker for a review prompt instead of just vanishing.
       if (curr === "delivered") {
-        setTimeout(() => {
-          closeTimerModal();
-          setActiveTableOrder(null);
-        }, 4000);
+        setTimeout(() => setShowReview(true), 2200);
       }
     }
 
@@ -113,6 +113,16 @@ export function TimerModal() {
   }, [liveOrder?.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [cancelConfirm, setCancelConfirm] = useState(false);
+
+  function dismissReview() {
+    setShowReview(false);
+    closeTimerModal();
+    setActiveTableOrder(null);
+  }
+
+  if (showReview && liveOrder) {
+    return <ReviewModal order={liveOrder} onClose={dismissReview} />;
+  }
 
   if (!liveOrder || !timerModalOpen) return null;
 

@@ -1,48 +1,289 @@
 "use client";
-import { motion } from "framer-motion";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
-import { Star } from "lucide-react";
+import { Star, Quote, ChevronLeft, ChevronRight } from "lucide-react";
 import { SectionHeading } from "@/components/ui/SectionHeading";
-import { testimonials } from "@/lib/mock-data";
+import type { Review } from "@/types/review";
 
-export function TestimonialsSection() {
+const AUTO_ADVANCE_MS = 6000;
+
+interface ReviewGroup {
+  groupId: string;
+  customerName: string;
+  customerAvatar?: string;
+  comment?: string;
+  createdAt: string;
+  items: { itemName: string; itemImage: string; rating: number }[];
+}
+
+function groupReviews(reviews: Review[]): ReviewGroup[] {
+  const byGroup = new Map<string, ReviewGroup>();
+  for (const r of reviews) {
+    const existing = byGroup.get(r.groupId);
+    if (existing) {
+      existing.items.push({ itemName: r.itemName, itemImage: r.itemImage, rating: r.rating });
+    } else {
+      byGroup.set(r.groupId, {
+        groupId: r.groupId,
+        customerName: r.customerName,
+        customerAvatar: r.customerAvatar,
+        comment: r.comment,
+        createdAt: r.createdAt,
+        items: [{ itemName: r.itemName, itemImage: r.itemImage, rating: r.rating }],
+      });
+    }
+  }
+  return Array.from(byGroup.values()).sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+}
+
+/** Dish image(s) for the active review — orbiting when a group has more than one item. */
+function ReviewDishVisual({ items }: { items: ReviewGroup["items"] }) {
+  const [main, ...rest] = items;
+
   return (
-    <section className="py-16 md:py-24">
-      <div className="max-w-7xl mx-auto px-4 md:px-6">
-        <SectionHeading
-          eyebrow="Testimonials"
-          title="What people say."
-          subtitle="From Chittagonians and food lovers who know what real flavour means."
-        />
+    <div className="relative w-full h-72 sm:h-80 md:h-96 flex items-center justify-center">
+      {/* Orbit rings — only when there's more than one dish to place on them */}
+      {rest.length > 0 && (
+        <>
+          <div
+            className="absolute rounded-full border border-dashed border-brand-orange/20"
+            style={{ width: 300, height: 300 }}
+          />
+          <div
+            className="absolute rounded-full border border-dashed border-brand-brown/10"
+            style={{ width: 220, height: 220 }}
+          />
+        </>
+      )}
 
-        {/* Mobile: horizontal scroll snap; Desktop: 4-col grid */}
-        <div className="flex md:grid md:grid-cols-4 gap-4 md:gap-6 overflow-x-auto no-scrollbar snap-x snap-mandatory -mx-4 px-4 md:mx-0 md:px-0 md:overflow-visible pb-2 md:pb-0">
-          {testimonials.map((t, i) => (
+      {rest.map((item, i) => {
+        const angle = (360 / rest.length) * i;
+        const duration = 20 + i * 3;
+        return (
+          <motion.div
+            key={`${item.itemName}-${i}`}
+            className="absolute"
+            style={{ width: 64, height: 64, top: "50%", left: "50%", marginTop: -32, marginLeft: -32 }}
+            animate={{ rotate: [angle, angle + 360] }}
+            transition={{ duration, repeat: Infinity, ease: "linear" }}
+          >
             <motion.div
-              key={t.id}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.1 }}
-              className="bg-white rounded-2xl p-5 md:p-6 shadow-sm hover:shadow-md transition-shadow snap-start shrink-0 w-[78vw] sm:w-[55vw] md:w-auto"
+              animate={{ rotate: [-angle, -(angle + 360)] }}
+              transition={{ duration, repeat: Infinity, ease: "linear" }}
+              style={{ position: "absolute", top: "50%", left: "50%", marginTop: -32, marginLeft: -32, translateX: 150 }}
             >
-              <div className="flex mb-3">
-                {[...Array(t.rating)].map((_, idx) => (
-                  <Star key={idx} className="w-4 h-4 fill-amber-400 text-amber-400" />
-                ))}
-              </div>
-              <p className="font-sans text-sm text-brand-brown-mid leading-relaxed mb-5">"{t.text}"</p>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-brand-warm-gray overflow-hidden relative shrink-0">
-                  <Image src={t.avatar} alt={t.name} fill sizes="40px" className="object-cover" />
-                </div>
-                <div>
-                  <p className="font-sans text-sm font-semibold text-brand-brown">{t.name}</p>
-                  <p className="font-sans text-xs text-brand-brown-mid">{t.location}</p>
-                </div>
+              <div className="w-16 h-16 rounded-full overflow-hidden shadow-lg border-2 border-white bg-brand-warm-gray">
+                <Image src={item.itemImage} alt={item.itemName} width={64} height={64} className="w-full h-full object-cover" />
               </div>
             </motion.div>
-          ))}
+          </motion.div>
+        );
+      })}
+
+      {/* Central dish — gentle float, matches hero's animate-float feel */}
+      <motion.div
+        key={main.itemName}
+        initial={{ opacity: 0, scale: 0.85 }}
+        animate={{ opacity: 1, scale: 1, y: [0, -10, 0] }}
+        transition={{ opacity: { duration: 0.4 }, scale: { duration: 0.4 }, y: { duration: 5, repeat: Infinity, ease: "easeInOut" } }}
+        className="relative z-10 w-44 h-44 sm:w-56 sm:h-56 rounded-full overflow-hidden shadow-2xl border-4 border-white"
+      >
+        <Image src={main.itemImage} alt={main.itemName} fill sizes="224px" className="object-cover" />
+      </motion.div>
+    </div>
+  );
+}
+
+export function TestimonialsSection() {
+  const [groups, setGroups] = useState<ReviewGroup[]>([]);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [paused, setPaused] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const res = await fetch("/api/reviews");
+        const data = await res.json();
+        if (!cancelled && res.ok && data.success) {
+          setGroups(groupReviews(data.reviews ?? []));
+        }
+      } catch {
+        // no reviews yet — section renders nothing rather than stale mock data
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
+  const goTo = useCallback((index: number, total: number) => {
+    setActiveIndex(((index % total) + total) % total);
+  }, []);
+
+  const goPrev = useCallback(() => goTo(activeIndex - 1, groups.length), [activeIndex, groups.length, goTo]);
+  const goNext = useCallback(() => goTo(activeIndex + 1, groups.length), [activeIndex, groups.length, goTo]);
+
+  // Auto-advance through reviews on a timer; pauses while hovered or an arrow/dot is
+  // used, so it doesn't fight a customer actively browsing.
+  const pauseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (paused || groups.length <= 1) return;
+    const id = setInterval(() => goTo(activeIndex + 1, groups.length), AUTO_ADVANCE_MS);
+    return () => clearInterval(id);
+  }, [paused, activeIndex, groups.length, goTo]);
+
+  function pauseThenResume() {
+    setPaused(true);
+    if (pauseTimeoutRef.current) clearTimeout(pauseTimeoutRef.current);
+    pauseTimeoutRef.current = setTimeout(() => setPaused(false), AUTO_ADVANCE_MS * 2);
+  }
+
+  useEffect(() => () => { if (pauseTimeoutRef.current) clearTimeout(pauseTimeoutRef.current); }, []);
+
+  const active = groups[activeIndex];
+
+  const avatarDots = useMemo(() => groups.slice(0, 6), [groups]);
+
+  if (groups.length === 0) return null;
+
+  return (
+    <section className="relative py-16 md:py-24 overflow-hidden">
+      {/* Corner garnish — decorative, matches the reference layout's plated-ingredient framing */}
+      <Image
+        src="/images/review section/review section left bottom corner.png"
+        alt=""
+        aria-hidden
+        width={220}
+        height={220}
+        className="pointer-events-none select-none absolute -left-6 -bottom-6 w-28 sm:w-40 md:w-52 h-auto opacity-90 hidden sm:block"
+      />
+      <Image
+        src="/images/review section/review section right bottom corner.png"
+        alt=""
+        aria-hidden
+        width={220}
+        height={220}
+        className="pointer-events-none select-none absolute -right-4 -bottom-8 w-24 sm:w-32 md:w-44 h-auto opacity-90 hidden sm:block"
+      />
+      <Image
+        src="/images/review section/review section right top  corner.png"
+        alt=""
+        aria-hidden
+        width={260}
+        height={260}
+        className="pointer-events-none select-none absolute -right-6 -top-6 w-32 sm:w-44 md:w-56 h-auto opacity-90 hidden sm:block"
+      />
+
+      <div
+        className="relative max-w-7xl mx-auto px-4 md:px-6"
+        onMouseEnter={() => setPaused(true)}
+        onMouseLeave={() => setPaused(false)}
+      >
+        <SectionHeading
+          eyebrow="Testimonials"
+          title="Let's see what others say."
+          subtitle="Please serve yourself without any hesitation."
+        />
+
+        <div className="relative">
+          {groups.length > 1 && (
+            <>
+              <button
+                onClick={() => { goPrev(); pauseThenResume(); }}
+                aria-label="Previous review"
+                className="absolute -left-2 sm:-left-4 top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white shadow-md border border-brand-warm-gray flex items-center justify-center text-brand-brown hover:bg-brand-orange hover:text-white hover:border-brand-orange transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+              </button>
+              <button
+                onClick={() => { goNext(); pauseThenResume(); }}
+                aria-label="Next review"
+                className="absolute -right-2 sm:-right-4 top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white shadow-md border border-brand-warm-gray flex items-center justify-center text-brand-brown hover:bg-brand-orange hover:text-white hover:border-brand-orange transition-colors"
+              >
+                <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+              </button>
+            </>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16 items-center">
+            {/* Left — dish visual */}
+            <AnimatePresence mode="wait">
+              {active && <ReviewDishVisual key={active.groupId} items={active.items} />}
+            </AnimatePresence>
+
+            {/* Right — quote + reviewer row */}
+            <AnimatePresence mode="wait">
+              {active && (
+                <motion.div
+                  key={active.groupId}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.35 }}
+                  className="space-y-6"
+                >
+                  <Quote className="w-8 h-8 text-brand-orange/40" />
+
+                  {/* Dish names being reviewed */}
+                  <p className="font-sans text-xs font-semibold tracking-widest uppercase text-brand-orange">
+                    {active.items.map((i) => i.itemName).join(" · ")}
+                  </p>
+
+                  <p className="font-serif text-xl md:text-2xl text-brand-brown leading-relaxed">
+                    &ldquo;{active.comment || "A wonderful experience — highly recommended!"}&rdquo;
+                  </p>
+
+                  {/* Per-item stars */}
+                  <div className="space-y-1.5">
+                    {active.items.map((item) => (
+                      <div key={item.itemName} className="flex items-center gap-2">
+                        <span className="font-sans text-xs text-brand-brown-mid w-32 truncate">{item.itemName}</span>
+                        <div className="flex">
+                          {Array.from({ length: 5 }).map((_, idx) => (
+                            <Star
+                              key={idx}
+                              className={
+                                idx < item.rating
+                                  ? "w-3.5 h-3.5 fill-amber-400 text-amber-400"
+                                  : "w-3.5 h-3.5 text-brand-warm-gray"
+                              }
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <p className="font-sans text-sm font-semibold text-brand-brown">{active.customerName}</p>
+
+                  {/* Avatar dot row — click to switch review */}
+                  <div className="flex items-center gap-2 pt-2">
+                    {avatarDots.map((g, i) => (
+                      <button
+                        key={g.groupId}
+                        onClick={() => { setActiveIndex(i); pauseThenResume(); }}
+                        className={`relative w-10 h-10 rounded-full overflow-hidden border-2 transition-all shrink-0 ${
+                          i === activeIndex ? "border-brand-orange scale-110" : "border-transparent opacity-60 hover:opacity-100"
+                        }`}
+                        aria-label={`Show review from ${g.customerName}`}
+                      >
+                        {g.customerAvatar ? (
+                          <Image src={g.customerAvatar} alt={g.customerName} fill sizes="40px" className="object-cover" />
+                        ) : (
+                          <div className="w-full h-full bg-brand-warm-gray flex items-center justify-center font-sans text-xs font-bold text-brand-brown-mid">
+                            {g.customerName.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </div>
     </section>

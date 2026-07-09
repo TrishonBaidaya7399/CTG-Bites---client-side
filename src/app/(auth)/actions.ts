@@ -6,7 +6,7 @@ import { apiFetch } from "@/lib/api";
 interface AuthResponse {
   accessToken: string;
   refreshToken: string;
-  user: { id: string; name: string; email: string; role: string };
+  user: { id: string; name: string; email: string; role: string; avatarUrl?: string };
 }
 
 const ACCESS_COOKIE = "ctg_access";
@@ -46,6 +46,20 @@ export async function loginAction(formData: FormData) {
     await setAuthCookies(data);
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Invalid email or password." };
+  }
+
+  redirect("/order");
+}
+
+export async function googleLoginAction(idToken: string) {
+  try {
+    const data = await apiFetch<AuthResponse>("/api/auth/google", {
+      method: "POST",
+      body: JSON.stringify({ idToken }),
+    });
+    await setAuthCookies(data);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Google sign-in failed." };
   }
 
   redirect("/order");

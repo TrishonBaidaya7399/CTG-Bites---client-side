@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Mail, Lock, Eye, EyeOff, ArrowRight, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { loginAction } from "@/app/(auth)/actions";
+import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 
 interface FieldProps {
   id: string;
@@ -170,6 +171,8 @@ export function LoginForm() {
           <>Sign In <ArrowRight className="w-4 h-4" /></>
         )}
       </motion.button>
+
+      <GoogleSignInButton />
     </form>
   );
 }

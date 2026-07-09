@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { User, Mail, Lock, Eye, EyeOff, ArrowRight, Loader2, Phone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { registerAction } from "@/app/(auth)/actions";
+import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 
 interface FieldProps {
   id: string;
@@ -209,6 +210,8 @@ export function RegisterForm() {
         {" & "}
         <Link href="/privacy" className="text-brand-orange hover:underline">Privacy Policy</Link>
       </p>
+
+      <GoogleSignInButton />
     </form>
   );
 }

@@ -61,6 +61,12 @@ const PERMISSION_GROUPS: { title: string; keys: { key: string; label: string }[]
       { key: "users:delete", label: "Delete staff members" },
     ],
   },
+  {
+    title: "Reviews",
+    keys: [
+      { key: "reviews:moderate", label: "Approve, edit, hide, or delete reviews" },
+    ],
+  },
 ];
 
 const EDITABLE_ROLES: EditableRole[] = ["manager", "staff", "rider"];

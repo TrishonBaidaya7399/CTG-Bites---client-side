@@ -3,7 +3,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { LayoutDashboard, ShoppingBag, UtensilsCrossed, Tablet, LogOut, Menu, X, ExternalLink, Bell, FolderTree, Soup, Users, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, ShoppingBag, UtensilsCrossed, Tablet, LogOut, Menu, X, ExternalLink, Bell, FolderTree, Soup, Users, ShieldCheck, Star } from "lucide-react";
 import { useOrderStore } from "@/store/orderStore";
 import { useAdminSound } from "@/hooks/useAdminSound";
 import { AdminOrderSyncProvider } from "@/components/order/AdminOrderSyncProvider";
@@ -25,6 +25,7 @@ const navItems = [
   { label: "Menu Items",    href: "/admin/menu",          icon: UtensilsCrossed },
   { label: "Appetizers",    href: "/admin/appetizers",    icon: Soup },
   { label: "Categories",    href: "/admin/categories",    icon: FolderTree },
+  { label: "Reviews",       href: "/admin/reviews",       icon: Star },
   { label: "Staff & Roles", href: "/admin/staff",         icon: Users,       roles: ["owner", "manager"] },
   { label: "Permissions",   href: "/admin/permissions",   icon: ShieldCheck, roles: ["owner"] },
   { label: "Settings",      href: "/admin/settings",      icon: Bell },
