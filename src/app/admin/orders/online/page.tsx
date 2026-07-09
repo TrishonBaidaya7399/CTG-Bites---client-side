@@ -26,7 +26,7 @@ function timeSince(iso: string) {
 }
 
 export default function OnlineOrdersPage() {
-  const { orders, updateStatus, cancelOrder, acceptOrder } = useOrderStore();
+  const { orders, ordersLoading, ordersError, updateStatus, cancelOrder, acceptOrder } = useOrderStore();
   const [filter, setFilter] = useState<OrderStatus | "all">("all");
   const [expanded, setExpanded] = useState<string | null>(null);
   const [acceptId, setAcceptId] = useState<string | null>(null);
@@ -85,9 +85,16 @@ export default function OnlineOrdersPage() {
         )}
       </AnimatePresence>
 
+      {ordersError && (
+        <p className="text-sm text-red-500 font-sans bg-red-50 border border-red-200 rounded-xl px-4 py-2">{ordersError}</p>
+      )}
+
       {/* Order rows */}
       <div className="space-y-2">
-        {filtered.length === 0 && (
+        {ordersLoading && orders.length === 0 && (
+          <p className="font-sans text-sm text-brand-brown-mid text-center py-12">Loading orders…</p>
+        )}
+        {!ordersLoading && filtered.length === 0 && (
           <p className="font-sans text-sm text-brand-brown-mid text-center py-12">No orders found.</p>
         )}
         {filtered.map((order) => (

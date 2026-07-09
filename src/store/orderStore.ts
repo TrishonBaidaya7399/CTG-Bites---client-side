@@ -13,6 +13,8 @@ export interface AdminUser {
 
 interface OrderState {
   orders: Order[];
+  ordersLoading: boolean;
+  ordersError: string | null;
   activeTableOrder: Order | null;
   timerModalOpen: boolean;
   timerModalMinimized: boolean;
@@ -46,6 +48,8 @@ export const useOrderStore = create<OrderState>()(
   persist(
     (set, get) => ({
       orders: [],
+      ordersLoading: false,
+      ordersError: null,
       activeTableOrder: null,
       timerModalOpen: false,
       timerModalMinimized: false,
@@ -86,6 +90,7 @@ export const useOrderStore = create<OrderState>()(
       async fetchOrders() {
         const token = get().adminAccessToken;
         if (!token) return;
+        set({ ordersLoading: true, ordersError: null });
         try {
           const res = await fetch("/api/orders", {
             headers: { Authorization: `Bearer ${token}` },
@@ -93,10 +98,12 @@ export const useOrderStore = create<OrderState>()(
           });
           const data = await res.json();
           if (res.ok && data.success) {
-            set({ orders: data.orders ?? [] });
+            set({ orders: data.orders ?? [], ordersLoading: false, ordersError: null });
+          } else {
+            set({ ordersLoading: false, ordersError: data?.error ?? "Failed to load orders." });
           }
         } catch {
-          // network error — leave existing orders in place
+          set({ ordersLoading: false, ordersError: "Network error — could not load orders." });
         }
       },
 
@@ -209,13 +216,16 @@ export const useOrderStore = create<OrderState>()(
       },
 
       adminLogout() {
-        set({ isAdminAuthenticated: false, adminUser: null, adminAccessToken: null });
+        set({ isAdminAuthenticated: false, adminUser: null, adminAccessToken: null, orders: [] });
       },
     }),
     {
       name: "ctg-bites-orders",
       partialize: (s) => ({
-        orders: s.orders,
+        // The admin-wide order list is intentionally NOT persisted — it must always come
+        // fresh from the server + socket so the admin panel never shows stale/cross-session
+        // orders. activeTableOrder IS persisted so a customer's own order-tracking modal
+        // survives a page refresh.
         activeTableOrder: s.activeTableOrder,
         timerModalOpen: s.timerModalOpen,
         timerModalMinimized: s.timerModalMinimized,

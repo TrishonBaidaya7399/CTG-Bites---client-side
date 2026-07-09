@@ -27,7 +27,7 @@ function timeSince(iso: string) {
 }
 
 export default function TableOrdersPage() {
-  const { orders, updateStatus, cancelOrder, acceptOrder } = useOrderStore();
+  const { orders, ordersLoading, ordersError, updateStatus, cancelOrder, acceptOrder } = useOrderStore();
   const [filter, setFilter] = useState<OrderStatus | "all">("all");
   const [expanded, setExpanded] = useState<string | null>(null);
   const [acceptId, setAcceptId] = useState<string | null>(null);
@@ -78,8 +78,15 @@ export default function TableOrdersPage() {
         )}
       </AnimatePresence>
 
+      {ordersError && (
+        <p className="text-sm text-red-500 font-sans bg-red-50 border border-red-200 rounded-xl px-4 py-2">{ordersError}</p>
+      )}
+
       <div className="space-y-2">
-        {filtered.length === 0 && <p className="font-sans text-sm text-brand-brown-mid text-center py-12">No orders found.</p>}
+        {ordersLoading && orders.length === 0 && (
+          <p className="font-sans text-sm text-brand-brown-mid text-center py-12">Loading orders…</p>
+        )}
+        {!ordersLoading && filtered.length === 0 && <p className="font-sans text-sm text-brand-brown-mid text-center py-12">No orders found.</p>}
         {filtered.map((order) => (
           <div key={order.id} className="bg-white rounded-2xl border border-brand-warm-gray shadow-sm overflow-hidden">
             <button onClick={() => setExpanded(expanded === order.id ? null : order.id)} className="w-full flex items-center gap-3 p-4 text-left">
