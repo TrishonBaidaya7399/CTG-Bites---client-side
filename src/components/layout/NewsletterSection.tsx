@@ -36,7 +36,7 @@ export function NewsletterSection() {
   }
 
   return (
-    <section className="relative bg-foreground overflow-hidden py-20 md:py-28">
+    <section className="relative bg-white overflow-hidden py-20 md:py-28">
       {/* Decorative floating ingredients — hidden on mobile to avoid clutter, per reference layout */}
       <motion.div
         className="absolute left-6 top-8 w-20 md:w-28 opacity-90 pointer-events-none hidden sm:block"
