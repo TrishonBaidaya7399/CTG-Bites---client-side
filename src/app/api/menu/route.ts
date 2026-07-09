@@ -1,6 +1,28 @@
 import { NextResponse } from "next/server";
 import { apiUrl } from "@/lib/api";
 
+export async function POST(req: Request) {
+  const authHeader = req.headers.get("authorization");
+  if (!authHeader) {
+    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  }
+
+  const body = await req.json().catch(() => ({}));
+
+  const res = await fetch(apiUrl("/api/menu"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: authHeader },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => null);
+
+  if (!res.ok) {
+    return NextResponse.json({ success: false, error: data?.error ?? "Failed to create menu item" }, { status: res.status });
+  }
+
+  return NextResponse.json({ success: true, data: data.item ?? data });
+}
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const category = searchParams.get("category");
