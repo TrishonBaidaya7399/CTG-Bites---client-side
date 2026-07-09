@@ -99,6 +99,14 @@ export function TimerModal() {
           setActiveTableOrder(null);
         }, 2500);
       }
+
+      // Auto-vanish once delivered — give the customer a moment to see the "Delivered!" state
+      if (curr === "delivered") {
+        setTimeout(() => {
+          closeTimerModal();
+          setActiveTableOrder(null);
+        }, 4000);
+      }
     }
 
     prevStatusRef.current = curr;

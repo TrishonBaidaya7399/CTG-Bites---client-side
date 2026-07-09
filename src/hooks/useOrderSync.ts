@@ -10,7 +10,24 @@ import type { Order, OrderStatus } from "@/types/order";
 // server auto-joins role rooms.
 export function useOrderSync(accessToken?: string | null) {
   const socket = useSocket({ accessToken });
-  const { patchOrder, upsertOrder } = useOrderStore();
+  const { patchOrder, upsertOrder, activeTableOrder } = useOrderStore();
+
+  // Stay joined to the tracked order's room for as long as it's active, so status
+  // pushes (preparing/ready/delivered) keep arriving even after the page that
+  // placed the order unmounts. Re-joins on reconnect and whenever the tracked
+  // order changes.
+  const trackedOrderId = activeTableOrder?.id ?? null;
+  useEffect(() => {
+    if (!socket || !trackedOrderId) return;
+
+    const join = () => socket.emit("join:order", { orderNumber: trackedOrderId });
+    join();
+    socket.on("connect", join);
+
+    return () => {
+      socket.off("connect", join);
+    };
+  }, [socket, trackedOrderId]);
 
   useEffect(() => {
     if (!socket) return;
