@@ -44,16 +44,24 @@ function ReviewDishVisual({ items }: { items: ReviewGroup["items"] }) {
   const [main, ...rest] = items;
 
   return (
-    <div className="relative w-full h-72 sm:h-80 md:h-96 flex items-center justify-center">
+    <div className="relative w-full h-90 sm:h-100 md:h-130 lg:h-155 flex items-center justify-center">
       {/* Orbit rings — only when there's more than one dish to place on them */}
       {rest.length > 0 && (
         <>
           <div
-            className="absolute rounded-full border border-dashed border-brand-orange/20"
-            style={{ width: 300, height: 300 }}
+            className="absolute rounded-full border border-dashed border-brand-orange/20 hidden sm:block"
+            style={{ width: 460, height: 460 }}
           />
           <div
-            className="absolute rounded-full border border-dashed border-brand-brown/10"
+            className="absolute rounded-full border border-dashed border-brand-brown/10 hidden sm:block"
+            style={{ width: 360, height: 360 }}
+          />
+          <div
+            className="absolute rounded-full border border-dashed border-brand-orange/20 sm:hidden"
+            style={{ width: 280, height: 280 }}
+          />
+          <div
+            className="absolute rounded-full border border-dashed border-brand-brown/10 sm:hidden"
             style={{ width: 220, height: 220 }}
           />
         </>
@@ -66,32 +74,55 @@ function ReviewDishVisual({ items }: { items: ReviewGroup["items"] }) {
           <motion.div
             key={`${item.itemName}-${i}`}
             className="absolute"
-            style={{ width: 64, height: 64, top: "50%", left: "50%", marginTop: -32, marginLeft: -32 }}
+            style={{ width: 72, height: 72, top: "50%", left: "50%", marginTop: -36, marginLeft: -36 }}
             animate={{ rotate: [angle, angle + 360] }}
             transition={{ duration, repeat: Infinity, ease: "linear" }}
           >
             <motion.div
               animate={{ rotate: [-angle, -(angle + 360)] }}
               transition={{ duration, repeat: Infinity, ease: "linear" }}
-              style={{ position: "absolute", top: "50%", left: "50%", marginTop: -32, marginLeft: -32, translateX: 150 }}
+              style={{ position: "absolute", top: "50%", left: "50%", marginTop: -36, marginLeft: -36, translateX: 130 }}
+              className="sm:hidden"
             >
-              <div className="w-16 h-16 rounded-full overflow-hidden shadow-lg border-2 border-white bg-brand-warm-gray">
-                <Image src={item.itemImage} alt={item.itemName} width={64} height={64} className="w-full h-full object-cover" />
+              <div
+                style={{ width: 72, height: 72 }}
+                className="rounded-full overflow-hidden shadow-lg border-2 border-white bg-brand-warm-gray"
+              >
+                <Image src={item.itemImage} alt={item.itemName} width={72} height={72} className="w-full h-full object-cover" />
+              </div>
+            </motion.div>
+            <motion.div
+              animate={{ rotate: [-angle, -(angle + 360)] }}
+              transition={{ duration, repeat: Infinity, ease: "linear" }}
+              style={{ position: "absolute", top: "50%", left: "50%", marginTop: -55, marginLeft: -55, translateX: 230 }}
+              className="hidden sm:block"
+            >
+              <div
+                style={{ width: 110, height: 110 }}
+                className="rounded-full overflow-hidden shadow-xl border-2 border-white bg-brand-warm-gray"
+              >
+                <Image src={item.itemImage} alt={item.itemName} width={110} height={110} className="w-full h-full object-cover" />
               </div>
             </motion.div>
           </motion.div>
         );
       })}
 
-      {/* Central dish — gentle float, matches hero's animate-float feel */}
+      {/* Central dish — gentle float, matches the hero's central plate sizing/animation */}
       <motion.div
-        key={main.itemName}
-        initial={{ opacity: 0, scale: 0.85 }}
-        animate={{ opacity: 1, scale: 1, y: [0, -10, 0] }}
-        transition={{ opacity: { duration: 0.4 }, scale: { duration: 0.4 }, y: { duration: 5, repeat: Infinity, ease: "easeInOut" } }}
-        className="relative z-10 w-44 h-44 sm:w-56 sm:h-56 rounded-full overflow-hidden shadow-2xl border-4 border-white"
+        animate={{ y: [0, -10, 0] }}
+        transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+        className="relative z-10"
       >
-        <Image src={main.itemImage} alt={main.itemName} fill sizes="224px" className="object-cover" />
+        <motion.div
+          key={main.itemName}
+          initial={{ opacity: 0, scale: 0.85 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.4 }}
+          className="rounded-full overflow-hidden shadow-2xl border-4 border-white relative w-56 h-56 sm:w-80 sm:h-80 md:w-96 md:h-96 lg:w-105 lg:h-105"
+        >
+          <Image src={main.itemImage} alt={main.itemName} fill sizes="(max-width: 640px) 224px, (max-width: 768px) 320px, 420px" className="object-cover" priority />
+        </motion.div>
       </motion.div>
     </div>
   );
@@ -153,7 +184,7 @@ export function TestimonialsSection() {
     <section className="relative py-16 md:py-24 overflow-hidden">
       {/* Corner garnish — decorative, matches the reference layout's plated-ingredient framing */}
       <Image
-        src="/images/review section/review section left bottom corner.png"
+        src="/images/review section/review_section_left_bottom_corner.png"
         alt=""
         aria-hidden
         width={220}
@@ -161,7 +192,7 @@ export function TestimonialsSection() {
         className="pointer-events-none select-none absolute -left-6 -bottom-6 w-28 sm:w-40 md:w-52 h-auto opacity-90 hidden sm:block"
       />
       <Image
-        src="/images/review section/review section right bottom corner.png"
+        src="/images/review section/review_section_right_bottom_corner.png"
         alt=""
         aria-hidden
         width={220}
@@ -169,7 +200,7 @@ export function TestimonialsSection() {
         className="pointer-events-none select-none absolute -right-4 -bottom-8 w-24 sm:w-32 md:w-44 h-auto opacity-90 hidden sm:block"
       />
       <Image
-        src="/images/review section/review section right top  corner.png"
+        src="/images/review section/review_section_right_top__corner.png"
         alt=""
         aria-hidden
         width={260}

@@ -220,7 +220,7 @@ export function OnlineOrderClient() {
                   const qty = getQty(item.id);
                   return (
                     <motion.div key={item.id} layout className="bg-white rounded-2xl overflow-hidden shadow-sm flex flex-col">
-                      <div className="relative h-32 bg-brand-warm-gray">
+                      <div className="relative aspect-square bg-brand-warm-gray">
                         <Image src={item.image} alt={item.name} fill sizes="(max-width: 640px) 50vw, 25vw" className="object-cover" />
                         <div className="absolute top-2 right-2 flex gap-1">
                           {item.isVeg && <span className="bg-brand-green-herb text-white rounded-full p-1"><Leaf className="w-2.5 h-2.5" /></span>}

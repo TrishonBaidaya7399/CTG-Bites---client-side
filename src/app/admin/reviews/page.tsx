@@ -2,10 +2,11 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
-import { Star, Check, EyeOff, Trash2, Pencil, X, Save } from "lucide-react";
+import { Star, Check, EyeOff, Trash2, Pencil, Save, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useOrderStore } from "@/store/orderStore";
 import { cn } from "@/lib/utils";
+import { AddManualReviewModal } from "@/components/admin/AddManualReviewModal";
 import type { Review, ReviewStatus } from "@/types/review";
 
 const STATUS_TABS: { value: ReviewStatus | "all"; label: string }[] = [
@@ -102,7 +103,10 @@ function ReviewCard({ review, onChanged }: { review: Review; onChanged: (r: Revi
             ))}
           </div>
           <p className="font-sans text-xs text-brand-brown-mid mt-1">
-            {review.customerName} · Order {review.orderNumber}
+            {review.customerName}
+            {review.source === "manual"
+              ? ` · ${review.sourceLabel || "Added manually"}`
+              : ` · Order ${review.orderNumber}`}
           </p>
         </div>
       </div>
@@ -162,6 +166,7 @@ export default function AdminReviewsPage() {
   const [tab, setTab] = useState<ReviewStatus | "all">("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
 
   useEffect(() => {
     if (!adminAccessToken) return;
@@ -203,11 +208,19 @@ export default function AdminReviewsPage() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="font-serif text-xl font-bold text-brand-brown">Reviews</h1>
-        <p className="font-sans text-sm text-brand-brown-mid mt-1">
-          Approve, edit, hide, or delete customer reviews. Approved reviews appear on the public site.
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="font-serif text-xl font-bold text-brand-brown">Reviews</h1>
+          <p className="font-sans text-sm text-brand-brown-mid mt-1">
+            Approve, edit, hide, or delete customer reviews. Approved reviews appear on the public site.
+          </p>
+        </div>
+        <Button
+          onClick={() => setAddOpen(true)}
+          className="bg-brand-orange hover:bg-brand-orange-light text-white rounded-full text-sm flex items-center gap-1.5 shrink-0"
+        >
+          <Plus className="w-4 h-4" /> Add Review
+        </Button>
       </div>
 
       <div className="flex gap-2">
@@ -239,6 +252,17 @@ export default function AdminReviewsPage() {
             ))}
           </AnimatePresence>
         </div>
+      )}
+
+      {addOpen && (
+        <AddManualReviewModal
+          onClose={() => setAddOpen(false)}
+          onCreated={(review) => {
+            if (tab === "all" || tab === review.status) {
+              setReviews((prev) => [review, ...prev]);
+            }
+          }}
+        />
       )}
     </div>
   );
