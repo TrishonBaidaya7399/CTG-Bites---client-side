@@ -35,16 +35,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const pathname = usePathname();
   const { isAdminAuthenticated, adminLogout, adminUser } = useOrderStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // localStorage-persisted state isn't available during SSR/first paint — this only tells us
+  // the client has taken over, not that zustand's persist middleware has read localStorage yet.
   const mounted = useSyncExternalStore(noop, () => true, () => false);
+  // Give the persist middleware's synchronous rehydration (it runs in a useLayoutEffect-like
+  // microtask right after mount) one extra tick before trusting isAdminAuthenticated's value.
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
   const isPublicRoute = PUBLIC_ADMIN_ROUTES.includes(pathname);
+  const ready = mounted && hydrated;
 
   useEffect(() => {
+    if (!ready) return;
     if (!isAdminAuthenticated && !isPublicRoute) {
       router.replace("/admin/login");
     }
-  }, [isAdminAuthenticated, isPublicRoute, router]);
+  }, [ready, isAdminAuthenticated, isPublicRoute, router]);
 
-  if (!mounted) return null;
+  if (!ready) return null;
   if (!isAdminAuthenticated && !isPublicRoute) return null;
   if (isPublicRoute) return <>{children}</>;
 
