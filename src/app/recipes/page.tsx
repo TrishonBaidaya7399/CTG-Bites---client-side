@@ -56,13 +56,13 @@ export default async function RecipesPage() {
 
   return (
     <div className="pt-24">
-      <div className="max-w-7xl mx-auto px-6 py-12">
+      {/* <div className="max-w-7xl mx-auto px-6 py-12">
         <SectionHeading
           eyebrow="Recipes"
           title="Master the craft."
           subtitle="Every recipe is tested in our kitchen. Walk through it step by step."
         />
-      </div>
+      </div> */}
       <RecipesSection recipes={recipes} />
     </div>
   );
