@@ -119,7 +119,7 @@ function ReviewDishVisual({ items }: { items: ReviewGroup["items"] }) {
           initial={{ opacity: 0, scale: 0.85 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.4 }}
-          className="rounded-full overflow-hidden shadow-2xl border-4 border-white relative w-56 h-56 sm:w-80 sm:h-80 md:w-96 md:h-96 lg:w-105 lg:h-105"
+          className="rounded-full overflow-hidden shadow-2xl border-4 border-white bg-brand-cream relative w-56 h-56 sm:w-80 sm:h-80 md:w-96 md:h-96 lg:w-105 lg:h-105"
         >
           <Image src={main.itemImage} alt={main.itemName} fill sizes="(max-width: 640px) 224px, (max-width: 768px) 320px, 420px" className="object-cover" priority />
         </motion.div>
