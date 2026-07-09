@@ -87,7 +87,7 @@ export function NewsletterSection() {
       </motion.div>
 
       <motion.div
-        className="absolute right-1/3 bottom-10 w-10 md:w-12 opacity-80 pointer-events-none hidden lg:block"
+        className="absolute right-1/3 bottom-10 w-18 md:w-24 opacity-80 pointer-events-none hidden lg:block"
         animate={{ y: [0, -8, 0], rotate: [0, -10, 0] }}
         transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 0.6 }}
       >
