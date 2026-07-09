@@ -189,7 +189,7 @@ export function TestimonialsSection() {
         aria-hidden
         width={220}
         height={220}
-        className="pointer-events-none select-none absolute -left-6 -bottom-6 w-28 sm:w-40 md:w-52 h-auto opacity-90 hidden sm:block"
+        className="pointer-events-none select-none absolute -left-6 bottom-0 w-28 sm:w-40 md:w-52 h-auto opacity-90 hidden sm:block"
       />
       <Image
         src="/images/review section/review_section_right_bottom_corner.png"
@@ -197,7 +197,7 @@ export function TestimonialsSection() {
         aria-hidden
         width={220}
         height={220}
-        className="pointer-events-none select-none absolute -right-4 -bottom-8 w-24 sm:w-32 md:w-44 h-auto opacity-90 hidden sm:block"
+        className="pointer-events-none select-none absolute -right-4 bottom-0 w-24 sm:w-32 md:w-44 h-auto opacity-90 hidden sm:block"
       />
       <Image
         src="/images/review section/review_section_right_top__corner.png"
@@ -205,7 +205,7 @@ export function TestimonialsSection() {
         aria-hidden
         width={260}
         height={260}
-        className="pointer-events-none select-none absolute -right-6 -top-6 w-32 sm:w-44 md:w-56 h-auto opacity-90 hidden sm:block"
+        className="pointer-events-none select-none absolute -right-6 top-0 w-32 sm:w-44 md:w-56 h-auto opacity-90 hidden sm:block"
       />
 
       <div
