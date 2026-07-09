@@ -1,8 +1,8 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { Pencil, X, Upload, ImageIcon } from "lucide-react";
+import { Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,6 +11,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { FileUpload } from "@/components/ui/file-upload";
 import { useOrderStore } from "@/store/orderStore";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +25,7 @@ interface MenuItem {
   badge?: string | null;
   description: string;
   image: string;
+  imagePublicId?: string;
   isVeg?: boolean;
   isSpicy?: boolean;
   available: boolean;
@@ -47,6 +49,7 @@ function normalizeMenuItem(raw: Record<string, unknown>): MenuItem {
     badge: (raw.badge as string | null) ?? null,
     description: (raw.description as string) ?? "",
     image: raw.image as string,
+    imagePublicId: raw.imagePublicId as string | undefined,
     isVeg: raw.isVeg as boolean | undefined,
     isSpicy: raw.isSpicy as boolean | undefined,
     available: (raw.available as boolean) ?? true,
@@ -68,12 +71,6 @@ export default function AdminMenuPage() {
   const [draft, setDraft] = useState<MenuItem | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
-  // imagePreview holds a local object URL while the user has picked a file
-  // but the real upload API hasn't been built on the backend yet — save still
-  // patches all other fields for real.
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!adminAccessToken) return;
@@ -123,27 +120,13 @@ export default function AdminMenuPage() {
   function openEdit(item: MenuItem) {
     setEditItem(item);
     setDraft({ ...item });
-    setImagePreview(null);
-    setImageFile(null);
     setSaveError("");
   }
 
   function closeEdit() {
     setEditItem(null);
     setDraft(null);
-    setImagePreview(null);
-    setImageFile(null);
     setSaveError("");
-  }
-
-  function handleImagePick(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setImageFile(file);
-    const url = URL.createObjectURL(file);
-    setImagePreview(url);
-    // Cloudinary upload isn't built on the backend yet — preview only, real
-    // image field is left untouched on save (see saveEdit note below).
   }
 
   function toggleAppetizerLink(appetizerId: string) {
@@ -162,13 +145,13 @@ export default function AdminMenuPage() {
     setSaving(true);
     setSaveError("");
     try {
-      // NOTE: image upload (Cloudinary) is not yet built on the backend — if the
-      // admin picked a new file, we don't send a fake blob: URL as the image field.
       const payload: Record<string, unknown> = {
         name: draft.name,
         price: draft.price,
         badge: draft.badge || null,
         description: draft.description,
+        image: draft.image,
+        imagePublicId: draft.imagePublicId,
         isVeg: draft.isVeg,
         isSpicy: draft.isSpicy,
         appetizers: draft.appetizers ?? [],
@@ -216,8 +199,6 @@ export default function AdminMenuPage() {
     }
   }
 
-  const currentImage = imagePreview ?? draft?.image;
-
   return (
     <div className="space-y-5">
       {/* shadcn Dialog for editing */}
@@ -234,66 +215,15 @@ export default function AdminMenuPage() {
                 <label className="block font-sans text-xs font-semibold text-brand-brown-mid uppercase tracking-wider mb-2">
                   Item Image
                 </label>
-
-                {/* Preview */}
-                <div
-                  className={cn(
-                    "relative w-full h-40 rounded-2xl overflow-hidden bg-brand-warm-gray border-2 border-dashed transition-colors cursor-pointer group",
-                    imagePreview ? "border-brand-orange" : "border-brand-warm-gray hover:border-brand-orange/50"
-                  )}
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  {currentImage ? (
-                    <>
-                      <Image
-                        src={currentImage}
-                        alt={draft.name}
-                        fill
-                        sizes="400px"
-                        className="object-cover"
-                        unoptimized={!!imagePreview}
-                      />
-                      {/* Hover overlay */}
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
-                        <Upload className="w-6 h-6 text-white" />
-                        <span className="font-sans text-xs text-white font-semibold">Change Image</span>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-brand-brown-mid">
-                      <ImageIcon className="w-8 h-8 opacity-40" />
-                      <span className="font-sans text-xs">Click to upload image</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Hidden file input */}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp,image/avif"
-                  className="hidden"
-                  onChange={handleImagePick}
+                <FileUpload
+                  value={draft.image}
+                  folder="menu-items"
+                  onUploaded={({ url, publicId }) =>
+                    setDraft((d) => (d ? { ...d, image: url, imagePublicId: publicId } : d))
+                  }
                 />
-
-                {/* File name + clear */}
-                {imageFile && (
-                  <div className="flex items-center gap-2 mt-2">
-                    <span className="font-sans text-xs text-brand-brown-mid truncate flex-1">{imageFile.name}</span>
-                    <button
-                      onClick={() => {
-                        setImageFile(null);
-                        setImagePreview(null);
-                      }}
-                      className="text-brand-brown-mid hover:text-red-500 transition-colors"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                )}
-
                 <p className="font-sans text-xs text-brand-brown-mid mt-1.5 opacity-70">
-                  PNG, JPG, WebP or AVIF. Image upload isn&apos;t wired to storage yet — other fields save normally.
+                  PNG, JPG, WebP or AVIF, up to 10MB.
                 </p>
               </div>
 

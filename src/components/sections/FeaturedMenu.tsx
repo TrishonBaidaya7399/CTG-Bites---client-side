@@ -1,16 +1,26 @@
 "use client";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence, useScroll, useTransform, useSpring } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
 import { Star, Flame, Leaf, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { menuCategories, menuItems } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import { useCartStore } from "@/store/cart";
-import type { menuItems as MenuItemsType } from "@/lib/mock-data";
 
-type MenuItem = (typeof MenuItemsType)[number];
+interface MenuItem {
+  id: string;
+  name: string;
+  category: string;
+  price: number;
+  rating: number;
+  reviews: number;
+  badge?: string | null;
+  description: string;
+  image: string;
+  isVeg?: boolean;
+  isSpicy?: boolean;
+}
 
 // ── Scroll-driven dish card ────────────────────────────────────────────────────
 function DishCard({ item, index }: { item: MenuItem; index: number }) {
@@ -49,7 +59,7 @@ function DishCard({ item, index }: { item: MenuItem; index: number }) {
       className="flex flex-col items-center text-center group"
     >
       {/* Dish image — circular, scroll-driven rotate + scale + float */}
-      <Link href={`/menu`} className="block mb-6 relative">
+      <Link href={`/menu/${item.id}`} className="block mb-6 relative">
         <motion.div
           style={{ rotate, scale, y }}
           whileHover={{ scale: 1.06 }}
@@ -158,7 +168,41 @@ function DishCard({ item, index }: { item: MenuItem; index: number }) {
 
 // ── Main section ──────────────────────────────────────────────────────────────
 export function FeaturedMenu() {
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [menuCategories, setMenuCategories] = useState<string[]>(["All"]);
+  const [loading, setLoading] = useState(true);
   const [active, setActive] = useState<string>("All");
+
+  useEffect(() => {
+    async function loadMenu() {
+      try {
+        const res = await fetch("/api/menu");
+        const data = await res.json();
+        if (res.ok && data.success) {
+          const items: MenuItem[] = (data.data ?? []).map((raw: Record<string, unknown>) => ({
+            id: (raw._id ?? raw.id) as string,
+            name: raw.name as string,
+            category: raw.category as string,
+            price: raw.price as number,
+            rating: (raw.rating as number) ?? 0,
+            reviews: (raw.reviews as number) ?? 0,
+            badge: raw.badge as string | null | undefined,
+            description: raw.description as string,
+            image: raw.image as string,
+            isVeg: raw.isVeg as boolean | undefined,
+            isSpicy: raw.isSpicy as boolean | undefined,
+          }));
+          setMenuItems(items);
+          const cats = Array.from(new Set(items.map((i) => i.category)));
+          setMenuCategories(["All", ...cats]);
+        }
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadMenu();
+  }, []);
+
   const filtered = active === "All" ? menuItems : menuItems.filter((i) => i.category === active);
   // Show max 6 on home page for clean layout; link to /menu for all
   const displayed = filtered.slice(0, 6);
@@ -251,14 +295,18 @@ export function FeaturedMenu() {
         </div>
 
         {/* Dish grid — 1 col mobile, 2 sm, 3 lg */}
-        <motion.div
-          layout
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10 md:gap-14"
-        >
-          {displayed.map((item, i) => (
-            <DishCard key={item.id} item={item} index={i} />
-          ))}
-        </motion.div>
+        {loading ? (
+          <p className="text-center font-sans text-brand-brown-mid py-12">Loading menu…</p>
+        ) : (
+          <motion.div
+            layout
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10 md:gap-14"
+          >
+            {displayed.map((item, i) => (
+              <DishCard key={item.id} item={item} index={i} />
+            ))}
+          </motion.div>
+        )}
 
         {/* View all link */}
         {menuItems.length > 6 && (

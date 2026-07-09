@@ -1,6 +1,14 @@
 import { RecipesSection } from "@/components/sections/RecipesSection";
 import { SectionHeading } from "@/components/ui/SectionHeading";
+import { apiUrl } from "@/lib/api";
 import type { Metadata } from "next";
+
+async function getRecipes() {
+  const res = await fetch(apiUrl("/api/recipes"), { next: { revalidate: 300 } });
+  if (!res.ok) return [];
+  const body = await res.json();
+  return body.recipes ?? [];
+}
 
 export const metadata: Metadata = {
   title: "Bengali Recipes — Kala Bhuna, Mezbani Dal, Shutki Bhorta & More",
@@ -43,7 +51,9 @@ export const metadata: Metadata = {
 };
 export const revalidate = 300;
 
-export default function RecipesPage() {
+export default async function RecipesPage() {
+  const recipes = await getRecipes();
+
   return (
     <div className="pt-24">
       <div className="max-w-7xl mx-auto px-6 py-12">
@@ -53,7 +63,7 @@ export default function RecipesPage() {
           subtitle="Every recipe is tested in our kitchen. Walk through it step by step."
         />
       </div>
-      <RecipesSection />
+      <RecipesSection recipes={recipes} />
     </div>
   );
 }

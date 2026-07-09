@@ -5,7 +5,15 @@ import { RecipesSection } from "@/components/sections/RecipesSection";
 import { TestimonialsSection } from "@/components/sections/TestimonialsSection";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { restaurantSchema, websiteSchema } from "@/lib/structured-data";
+import { apiUrl } from "@/lib/api";
 import type { Metadata } from "next";
+
+async function getRecipes() {
+  const res = await fetch(apiUrl("/api/recipes"), { next: { revalidate: 300 } });
+  if (!res.ok) return [];
+  const body = await res.json();
+  return body.recipes ?? [];
+}
 
 export const metadata: Metadata = {
   title: "CTG Bites | Authentic Chittagong Cuisine — Mezzban, Kala Bhuna & More",
@@ -60,7 +68,9 @@ export const metadata: Metadata = {
 
 export const revalidate = 60;
 
-export default function HomePage() {
+export default async function HomePage() {
+  const recipes = await getRecipes();
+
   return (
     <>
       <JsonLd data={restaurantSchema()} />
@@ -68,7 +78,7 @@ export default function HomePage() {
       <HeroSection />
       <StatsSection />
       <FeaturedMenu />
-      <RecipesSection />
+      <RecipesSection recipes={recipes} />
       <TestimonialsSection />
     </>
   );

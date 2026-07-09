@@ -1,13 +1,41 @@
 import { notFound } from "next/navigation";
 import Image from "next/image";
-import { recipes } from "@/lib/mock-data";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { recipeSchema, breadcrumbSchema } from "@/lib/structured-data";
 import { IngredientsGrid } from "@/components/recipe/IngredientsGrid";
 import { StepsTimeline } from "@/components/recipe/StepsTimeline";
+import { apiUrl } from "@/lib/api";
 import type { Metadata } from "next";
 
+interface Recipe {
+  title: string;
+  slug: string;
+  time: string;
+  difficulty: string;
+  servings: number;
+  category: string;
+  image: string;
+  excerpt: string;
+  ingredients: string[];
+  steps: string[];
+}
+
+async function getRecipe(slug: string): Promise<Recipe | null> {
+  const res = await fetch(apiUrl(`/api/recipes/${encodeURIComponent(slug)}`), { next: { revalidate: 300 } });
+  if (!res.ok) return null;
+  const body = await res.json();
+  return body.recipe ?? null;
+}
+
+async function getAllRecipes(): Promise<Recipe[]> {
+  const res = await fetch(apiUrl("/api/recipes"), { next: { revalidate: 300 } });
+  if (!res.ok) return [];
+  const body = await res.json();
+  return body.recipes ?? [];
+}
+
 export async function generateStaticParams() {
+  const recipes = await getAllRecipes();
   return recipes.map((r) => ({ slug: r.slug }));
 }
 
@@ -17,7 +45,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const recipe = recipes.find((r) => r.slug === slug);
+  const recipe = await getRecipe(slug);
   if (!recipe) return { title: "Recipe Not Found" };
 
   return {
@@ -63,7 +91,7 @@ export default async function RecipeDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const recipe = recipes.find((r) => r.slug === slug);
+  const recipe = await getRecipe(slug);
   if (!recipe) notFound();
 
   return (

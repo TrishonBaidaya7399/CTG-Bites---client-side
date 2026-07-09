@@ -6,9 +6,19 @@ import { Clock, ChefHat, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SectionHeading } from "@/components/ui/SectionHeading";
-import { recipes } from "@/lib/mock-data";
 
-export function RecipesSection() {
+interface Recipe {
+  title: string;
+  slug: string;
+  time: string;
+  difficulty: string;
+  servings: number;
+  category: string;
+  image: string;
+  excerpt: string;
+}
+
+export function RecipesSection({ recipes }: { recipes: Recipe[] }) {
   return (
     <section className="py-16 md:py-24 bg-brand-warm-gray/50">
       <div className="max-w-7xl mx-auto px-4 md:px-6">
@@ -22,7 +32,7 @@ export function RecipesSection() {
         <div className="flex md:grid md:grid-cols-3 gap-5 md:gap-8 overflow-x-auto no-scrollbar snap-x snap-mandatory -mx-4 px-4 md:mx-0 md:px-0 md:overflow-visible">
           {recipes.map((recipe, i) => (
             <motion.article
-              key={recipe.id}
+              key={recipe.slug}
               initial={{ opacity: 0, y: 40 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}

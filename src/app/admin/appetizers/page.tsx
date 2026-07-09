@@ -11,6 +11,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { FileUpload } from "@/components/ui/file-upload";
 import { useOrderStore } from "@/store/orderStore";
 import { cn } from "@/lib/utils";
 
@@ -21,6 +22,7 @@ interface Appetizer {
   price: number;
   description: string;
   image: string;
+  imagePublicId?: string;
   available: boolean;
 }
 
@@ -38,11 +40,12 @@ function normalizeAppetizer(raw: Record<string, unknown>): Appetizer {
     price: raw.price as number,
     description: (raw.description as string) ?? "",
     image: (raw.image as string) ?? "",
+    imagePublicId: raw.imagePublicId as string | undefined,
     available: (raw.available as boolean) ?? true,
   };
 }
 
-const EMPTY_DRAFT = { name: "", category: "", price: 0, description: "", image: "" };
+const EMPTY_DRAFT = { name: "", category: "", price: 0, description: "", image: "", imagePublicId: undefined as string | undefined };
 
 export default function AdminAppetizersPage() {
   const adminAccessToken = useOrderStore((s) => s.adminAccessToken);
@@ -106,7 +109,7 @@ export default function AdminAppetizersPage() {
 
   function openEdit(item: Appetizer) {
     setEditId(item.id);
-    setDraft({ name: item.name, category: item.category, price: item.price, description: item.description, image: item.image });
+    setDraft({ name: item.name, category: item.category, price: item.price, description: item.description, image: item.image, imagePublicId: item.imagePublicId });
     setSaveError("");
     setDialogOpen(true);
   }
@@ -114,6 +117,10 @@ export default function AdminAppetizersPage() {
   async function handleSave() {
     if (!adminAccessToken || !draft.name.trim() || !draft.category) {
       setSaveError("Name and category are required.");
+      return;
+    }
+    if (!draft.image) {
+      setSaveError("Please upload an image.");
       return;
     }
     setSaving(true);
@@ -210,15 +217,16 @@ export default function AdminAppetizersPage() {
             </div>
 
             <div>
-              <label className="block font-sans text-xs font-semibold text-brand-brown-mid uppercase tracking-wider mb-1.5">Image URL</label>
-              <input
+              <label className="block font-sans text-xs font-semibold text-brand-brown-mid uppercase tracking-wider mb-1.5">Image</label>
+              <FileUpload
                 value={draft.image}
-                onChange={(e) => setDraft((d) => ({ ...d, image: e.target.value }))}
-                placeholder="/images/menu/example.png"
-                className="w-full font-sans text-sm bg-brand-warm-gray/40 border border-brand-warm-gray rounded-xl px-4 py-2.5 outline-none focus:border-brand-orange transition-colors"
+                folder="appetizers"
+                onUploaded={({ url, publicId }) =>
+                  setDraft((d) => ({ ...d, image: url, imagePublicId: publicId }))
+                }
               />
               <p className="font-sans text-xs text-brand-brown-mid mt-1.5 opacity-70">
-                Direct file upload isn&apos;t wired to storage yet — paste an existing image path or URL.
+                PNG, JPG, WebP or AVIF, up to 10MB.
               </p>
             </div>
 

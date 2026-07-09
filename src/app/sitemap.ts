@@ -1,9 +1,21 @@
 import type { MetadataRoute } from "next";
-import { recipes } from "@/lib/mock-data";
+import { apiUrl } from "@/lib/api";
 
 const BASE_URL = "https://ctgbites.com";
 
-export default function sitemap(): MetadataRoute.Sitemap {
+async function getRecipes(): Promise<{ slug: string }[]> {
+  try {
+    const res = await fetch(apiUrl("/api/recipes"), { next: { revalidate: 300 } });
+    if (!res.ok) return [];
+    const body = await res.json();
+    return body.recipes ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const recipes = await getRecipes();
   const staticPages: MetadataRoute.Sitemap = [
     {
       url: BASE_URL,
