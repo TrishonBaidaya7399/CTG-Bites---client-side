@@ -22,6 +22,15 @@ interface MenuItem {
   isSpicy?: boolean;
 }
 
+interface ApiAppetizer {
+  id: string;
+  name: string;
+  category: string;
+  price: number;
+  description: string;
+  image: string;
+}
+
 // ── Scroll-driven dish card ────────────────────────────────────────────────────
 function DishCard({ item, index }: { item: MenuItem; index: number }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -166,20 +175,95 @@ function DishCard({ item, index }: { item: MenuItem; index: number }) {
   );
 }
 
+// ── Appetizer card — simpler variant, no rating/reviews ────────────────────────
+function AppetizerCard({ item, index }: { item: ApiAppetizer; index: number }) {
+  const addItem = useCartStore((s) => s.addItem);
+  const [added, setAdded] = useState(false);
+
+  function handleAdd() {
+    addItem({ id: item.id, name: item.name, price: item.price, image: item.image });
+    setAdded(true);
+    setTimeout(() => setAdded(false), 1400);
+  }
+
+  return (
+    <motion.article
+      initial={{ opacity: 0, y: 50 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-60px" }}
+      transition={{ duration: 0.65, delay: index * 0.12 }}
+      className="flex flex-col items-center text-center group"
+    >
+      <div className="mb-6 relative">
+        <div className="absolute inset-4 rounded-full bg-brand-orange/8 blur-2xl" />
+        <div className="relative rounded-full overflow-hidden border-4 border-white shadow-2xl w-52 h-52 sm:w-60 sm:h-60 md:w-64 md:h-64 lg:w-72 lg:h-72 bg-brand-warm-gray group-hover:shadow-brand-orange/20 transition-shadow duration-500">
+          <Image
+            src={item.image}
+            alt={item.name}
+            fill
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 288px"
+            className="object-cover group-hover:scale-110 transition-transform duration-700"
+          />
+        </div>
+      </div>
+
+      <h3 className="font-serif text-xl md:text-2xl font-bold text-brand-brown mb-2 leading-tight">
+        {item.name}
+      </h3>
+      <p className="font-sans text-sm text-brand-brown-mid leading-relaxed max-w-xs mx-auto mb-4 line-clamp-3">
+        {item.description}
+      </p>
+
+      <span className="font-serif font-bold text-brand-orange text-lg mb-5 block">৳{item.price}</span>
+
+      <Button
+        size="sm"
+        onClick={handleAdd}
+        className={cn(
+          "rounded-full px-6 shadow-md active:scale-95 transition-all",
+          added
+            ? "bg-brand-green-herb hover:bg-brand-green-herb text-white"
+            : "bg-brand-orange hover:bg-brand-orange-light text-white"
+        )}
+      >
+        <AnimatePresence mode="wait" initial={false}>
+          {added ? (
+            <motion.span key="done" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+              className="flex items-center gap-1">
+              <Check className="w-3.5 h-3.5" /> Added!
+            </motion.span>
+          ) : (
+            <motion.span key="add" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}>
+              Add to Cart
+            </motion.span>
+          )}
+        </AnimatePresence>
+      </Button>
+    </motion.article>
+  );
+}
+
 // ── Main section ──────────────────────────────────────────────────────────────
 export function FeaturedMenu() {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
-  const [menuCategories, setMenuCategories] = useState<string[]>(["All"]);
+  const [appetizers, setAppetizers] = useState<ApiAppetizer[]>([]);
+  const [menuCategories, setMenuCategories] = useState<string[]>([]);
+  const [appetizerCategories, setAppetizerCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [active, setActive] = useState<string>("All");
 
   useEffect(() => {
     async function loadMenu() {
       try {
-        const res = await fetch("/api/menu");
-        const data = await res.json();
-        if (res.ok && data.success) {
-          const items: MenuItem[] = (data.data ?? []).map((raw: Record<string, unknown>) => ({
+        const [menuRes, appetizerRes] = await Promise.all([
+          fetch("/api/menu"),
+          fetch("/api/appetizers"),
+        ]);
+        const menuData = await menuRes.json();
+        const appetizerData = await appetizerRes.json();
+
+        if (menuRes.ok && menuData.success) {
+          const items: MenuItem[] = (menuData.data ?? []).map((raw: Record<string, unknown>) => ({
             id: (raw._id ?? raw.id) as string,
             name: raw.name as string,
             category: raw.category as string,
@@ -193,8 +277,20 @@ export function FeaturedMenu() {
             isSpicy: raw.isSpicy as boolean | undefined,
           }));
           setMenuItems(items);
-          const cats = Array.from(new Set(items.map((i) => i.category)));
-          setMenuCategories(["All", ...cats]);
+          setMenuCategories(Array.from(new Set(items.map((i) => i.category))));
+        }
+
+        if (appetizerRes.ok && appetizerData.success) {
+          const items: ApiAppetizer[] = (appetizerData.data ?? []).map((raw: Record<string, unknown>) => ({
+            id: (raw._id ?? raw.id) as string,
+            name: raw.name as string,
+            category: raw.category as string,
+            price: raw.price as number,
+            description: raw.description as string,
+            image: raw.image as string,
+          }));
+          setAppetizers(items);
+          setAppetizerCategories(Array.from(new Set(items.map((i) => i.category))));
         }
       } finally {
         setLoading(false);
@@ -203,9 +299,26 @@ export function FeaturedMenu() {
     loadMenu();
   }, []);
 
-  const filtered = active === "All" ? menuItems : menuItems.filter((i) => i.category === active);
+  // Appetizer categories are appended after menu categories so the tab row reads as
+  // "menu categories, then appetizer categories" — matches how they're browsed in the
+  // admin panel (separate collections) while still sharing one filter row on-site.
+  // "All" shows the regular menu (existing behaviour); an appetizer category tab
+  // switches the grid over to that category's appetizers instead.
+  const categories = ["All", ...menuCategories, ...appetizerCategories];
+  const isAppetizerCategory = appetizerCategories.includes(active);
+
+  const filteredMenuItems = isAppetizerCategory
+    ? []
+    : active === "All"
+      ? menuItems
+      : menuItems.filter((i) => i.category === active);
+  const filteredAppetizers = isAppetizerCategory
+    ? appetizers.filter((a) => a.category === active)
+    : [];
+
   // Show max 6 on home page for clean layout; link to /menu for all
-  const displayed = filtered.slice(0, 6);
+  const displayedMenuItems = filteredMenuItems.slice(0, 6);
+  const displayedAppetizers = filteredAppetizers.slice(0, 6);
 
   return (
     <section className="relative py-20 md:py-28 overflow-hidden">
@@ -271,7 +384,7 @@ export function FeaturedMenu() {
 
         {/* Category tabs — underline style, horizontal scroll on mobile */}
         <div className="flex gap-0 justify-start md:justify-center mb-12 overflow-x-auto no-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
-          {menuCategories.map((cat) => (
+          {categories.map((cat) => (
             <button
               key={cat}
               onClick={() => setActive(cat)}
@@ -297,19 +410,24 @@ export function FeaturedMenu() {
         {/* Dish grid — 1 col mobile, 2 sm, 3 lg */}
         {loading ? (
           <p className="text-center font-sans text-brand-brown-mid py-12">Loading menu…</p>
+        ) : displayedMenuItems.length === 0 && displayedAppetizers.length === 0 ? (
+          <p className="text-center font-sans text-brand-brown-mid py-12">No items in this category yet.</p>
         ) : (
           <motion.div
             layout
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10 md:gap-14"
           >
-            {displayed.map((item, i) => (
+            {displayedMenuItems.map((item, i) => (
               <DishCard key={item.id} item={item} index={i} />
+            ))}
+            {displayedAppetizers.map((item, i) => (
+              <AppetizerCard key={item.id} item={item} index={displayedMenuItems.length + i} />
             ))}
           </motion.div>
         )}
 
         {/* View all link */}
-        {menuItems.length > 6 && (
+        {(isAppetizerCategory ? filteredAppetizers.length > 6 : filteredMenuItems.length > 6) && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}

@@ -67,6 +67,12 @@ const PERMISSION_GROUPS: { title: string; keys: { key: string; label: string }[]
       { key: "reviews:moderate", label: "Approve, edit, hide, or delete reviews" },
     ],
   },
+  {
+    title: "Newsletter",
+    keys: [
+      { key: "newsletter:manage", label: "View subscribers and send newsletter emails" },
+    ],
+  },
 ];
 
 const EDITABLE_ROLES: EditableRole[] = ["manager", "staff", "rider"];

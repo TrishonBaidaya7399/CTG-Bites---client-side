@@ -18,7 +18,9 @@ import { Button } from "@/components/ui/button";
 import { useOrderStore } from "@/store/orderStore";
 import { useSocket } from "@/hooks/useSocket";
 import { cn } from "@/lib/utils";
-import type { OrderType, Order, OrderStatus } from "@/types/order";
+import { MenuItemDetailModal } from "@/components/order/MenuItemDetailModal";
+import type { MenuItemDetail, AppetizerOption } from "@/components/menu/MenuItemDetailView";
+import type { OrderType, Order, OrderStatus, LocalOrderLine } from "@/types/order";
 
 interface ApiMenuItem {
   id: string;
@@ -30,13 +32,9 @@ interface ApiMenuItem {
   isSpicy?: boolean;
 }
 
-type LocalItem = {
-  id: string;
-  name: string;
-  price: number;
-  image: string;
-  qty: number;
-};
+function makeLineKey(menuItemId: string, appetizerIds: string[]): string {
+  return appetizerIds.length ? `${menuItemId}::${[...appetizerIds].sort().join(",")}` : menuItemId;
+}
 
 const TABLE_NUMBERS = ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"];
 
@@ -152,7 +150,8 @@ export function TableOrderClient() {
   }, [socket, myOrderId, patchOrder, setActiveTableOrder, openTimerModal]);
 
   const [activeCategory, setActiveCategory] = useState<string>("All");
-  const [localItems, setLocalItems] = useState<LocalItem[]>([]);
+  const [localItems, setLocalItems] = useState<LocalOrderLine[]>([]);
+  const [detailItemId, setDetailItemId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [orderType, setOrderType] = useState<OrderType>("table-food");
   const [tableNumber, setTableNumber] = useState("");
@@ -182,7 +181,10 @@ export function TableOrderClient() {
       : menuItems.filter((i) => i.category === activeCategory);
 
   const totalQty = localItems.reduce((s, i) => s + i.qty, 0);
-  const subtotal = localItems.reduce((s, i) => s + i.price * i.qty, 0);
+  const subtotal = localItems.reduce((s, i) => {
+    const appetizersTotal = i.appetizers.reduce((sum, a) => sum + a.price * a.qty, 0);
+    return s + (i.price + appetizersTotal) * i.qty;
+  }, 0);
   const discountAmount = couponCode ? couponDiscountAmount : 0;
   const totalPrice = subtotal - discountAmount;
 
@@ -227,29 +229,55 @@ export function TableOrderClient() {
   }
 
   function adjustQty(item: ApiMenuItem, delta: number) {
+    const lineKey = item.id;
     setLocalItems((prev) => {
-      const existing = prev.find((i) => i.id === item.id);
+      const existing = prev.find((i) => i.lineKey === lineKey);
       if (!existing) {
         if (delta < 1) return prev;
         return [
           ...prev,
           {
+            lineKey,
             id: item.id,
             name: item.name,
             price: item.price,
             image: item.image,
             qty: 1,
+            appetizers: [],
           },
         ];
       }
       const newQty = existing.qty + delta;
-      if (newQty < 1) return prev.filter((i) => i.id !== item.id);
-      return prev.map((i) => (i.id === item.id ? { ...i, qty: newQty } : i));
+      if (newQty < 1) return prev.filter((i) => i.lineKey !== lineKey);
+      return prev.map((i) => (i.lineKey === lineKey ? { ...i, qty: newQty } : i));
     });
   }
 
   function getQty(id: string) {
-    return localItems.find((i) => i.id === id)?.qty ?? 0;
+    return localItems.find((i) => i.lineKey === id)?.qty ?? 0;
+  }
+
+  function addBundle(item: MenuItemDetail, selected: AppetizerOption[]) {
+    const lineKey = makeLineKey(item.id, selected.map((a) => a.id));
+    setLocalItems((prev) => {
+      const existing = prev.find((i) => i.lineKey === lineKey);
+      if (existing) {
+        return prev.map((i) => (i.lineKey === lineKey ? { ...i, qty: i.qty + 1 } : i));
+      }
+      return [
+        ...prev,
+        {
+          lineKey,
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          image: item.image,
+          qty: 1,
+          appetizers: selected.map((a) => ({ id: a.id, name: a.name, price: a.price, image: a.image, qty: 1 })),
+        },
+      ];
+    });
+    setDetailItemId(null);
   }
 
   function validate() {
@@ -280,7 +308,13 @@ export function TableOrderClient() {
           tableNumber,
           customerName: customerName.trim() || `${tableNumber} Guest`,
           customerPhone: customerPhone || undefined,
-          items: localItems.map((i) => ({ menuItemId: i.id, quantity: i.qty })),
+          items: localItems.map((i) => ({
+            menuItemId: i.id,
+            quantity: i.qty,
+            appetizers: i.appetizers.length
+              ? i.appetizers.map((a) => ({ appetizerId: a.id, quantity: i.qty }))
+              : undefined,
+          })),
           note: note.trim() || undefined,
           couponCode: couponCode || undefined,
         }),
@@ -399,7 +433,12 @@ export function TableOrderClient() {
                 layout
                 className="bg-white rounded-2xl overflow-hidden shadow-sm flex flex-col"
               >
-                <div className="relative aspect-square bg-brand-warm-gray">
+                <button
+                  type="button"
+                  onClick={() => setDetailItemId(item.id)}
+                  className="relative aspect-square bg-brand-warm-gray text-left"
+                  aria-label={`View details for ${item.name}`}
+                >
                   <Image
                     src={item.image}
                     alt={item.name}
@@ -419,7 +458,7 @@ export function TableOrderClient() {
                       </span>
                     )}
                   </div>
-                </div>
+                </button>
                 <div className="p-3 flex flex-col flex-1 gap-2">
                   <p className="font-serif text-sm font-bold text-brand-brown leading-tight line-clamp-2">
                     {item.name}
@@ -582,19 +621,27 @@ export function TableOrderClient() {
 
                 {/* Items recap */}
                 <div className="bg-brand-cream rounded-2xl p-4 space-y-2">
-                  {localItems.map((item) => (
-                    <div
-                      key={item.id}
-                      className="flex justify-between font-sans text-sm"
-                    >
-                      <span className="text-brand-brown">
-                        {item.name} ×{item.qty}
-                      </span>
-                      <span className="font-semibold text-brand-brown">
-                        ৳{item.price * item.qty}
-                      </span>
-                    </div>
-                  ))}
+                  {localItems.map((item) => {
+                    const appetizersTotal = item.appetizers.reduce((s, a) => s + a.price * a.qty, 0);
+                    const lineTotal = (item.price + appetizersTotal) * item.qty;
+                    return (
+                      <div key={item.lineKey} className="font-sans text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-brand-brown">
+                            {item.name} ×{item.qty}
+                          </span>
+                          <span className="font-semibold text-brand-brown">
+                            ৳{lineTotal}
+                          </span>
+                        </div>
+                        {item.appetizers.length > 0 && (
+                          <p className="text-xs text-brand-brown-mid">
+                            + {item.appetizers.map((a) => a.name).join(", ")}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
                   <div className="border-t border-brand-warm-gray pt-2 space-y-1">
                     <div className="flex justify-between font-sans text-sm text-brand-brown-mid">
                       <span>Subtotal</span>
@@ -829,6 +876,14 @@ export function TableOrderClient() {
           </>
         )}
       </AnimatePresence>
+
+      {detailItemId && (
+        <MenuItemDetailModal
+          menuItemId={detailItemId}
+          onClose={() => setDetailItemId(null)}
+          onAddBundle={addBundle}
+        />
+      )}
     </div>
   );
 }

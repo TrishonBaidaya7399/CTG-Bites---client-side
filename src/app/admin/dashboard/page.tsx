@@ -158,12 +158,24 @@ function OrderCard({ order }: { order: Order }) {
         {/* Items */}
         <div className="space-y-1.5">
           {liveOrder.items.map((item) => (
-            <div key={item.menuItemId} className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg overflow-hidden bg-brand-warm-gray shrink-0">
-                <Image src={item.image} alt={item.name} width={28} height={28} className="w-full h-full object-cover" />
+            <div key={item.menuItemId} className="space-y-1">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg overflow-hidden bg-brand-warm-gray shrink-0">
+                  <Image src={item.image} alt={item.name} width={28} height={28} className="w-full h-full object-cover" />
+                </div>
+                <span className="font-sans text-xs text-brand-brown flex-1 truncate">{item.name} ×{item.quantity}</span>
+                <span className="font-sans text-xs font-semibold text-brand-orange shrink-0">৳{item.price * item.quantity}</span>
               </div>
-              <span className="font-sans text-xs text-brand-brown flex-1 truncate">{item.name} ×{item.quantity}</span>
-              <span className="font-sans text-xs font-semibold text-brand-orange shrink-0">৳{item.price * item.quantity}</span>
+              {item.appetizers && item.appetizers.length > 0 && (
+                <div className="pl-9 space-y-0.5">
+                  {item.appetizers.map((a) => (
+                    <div key={a.appetizerId || a.name} className="flex items-center gap-2">
+                      <span className="font-sans text-xs text-brand-brown-mid flex-1 truncate">+ {a.name} ×{a.quantity}</span>
+                      <span className="font-sans text-xs text-brand-brown-mid shrink-0">৳{a.price * a.quantity}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>

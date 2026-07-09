@@ -30,11 +30,11 @@ export function SectionHeading({
           {eyebrow}
         </span>
       )}
-      <h2 className="font-serif text-4xl md:text-5xl font-bold text-brand-brown leading-tight">
+      <h2 className="font-(--font-italianno) text-6xl md:text-7xl lg:text-8xl text-brand-brown leading-tight">
         {title}
       </h2>
       {subtitle && (
-        <p className="mt-4 font-sans text-brand-brown-mid text-lg max-w-xl mx-auto leading-relaxed">
+        <p className="mt-4 font-(--font-courgette) text-brand-brown-mid text-xl md:text-2xl max-w-xl mx-auto leading-relaxed">
           {subtitle}
         </p>
       )}

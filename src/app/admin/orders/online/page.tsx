@@ -60,7 +60,7 @@ export default function OnlineOrdersPage() {
               className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-xs space-y-4">
               <p className="font-serif font-bold text-brand-brown">Accept Order — Set Time</p>
               <p className="font-sans text-xs text-brand-brown-mid">
-                Customer's tracker starts the moment you confirm. Default is 10 min.
+                {`Customer's tracker starts the moment you confirm. Default is 10 min.`}
               </p>
               {/* Quick picks */}
               <div className="grid grid-cols-5 gap-1.5">
@@ -126,12 +126,24 @@ export default function OnlineOrdersPage() {
                     </div>
                     <div className="space-y-2">
                       {order.items.map((item) => (
-                        <div key={item.menuItemId} className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg overflow-hidden bg-brand-warm-gray shrink-0">
-                            <Image src={item.image} alt={item.name} width={32} height={32} className="w-full h-full object-cover" />
+                        <div key={item.menuItemId} className="space-y-1">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg overflow-hidden bg-brand-warm-gray shrink-0">
+                              <Image src={item.image} alt={item.name} width={32} height={32} className="w-full h-full object-cover" />
+                            </div>
+                            <span className="flex-1 font-sans text-sm text-brand-brown">{item.name} ×{item.quantity}</span>
+                            <span className="font-sans text-sm font-bold text-brand-orange">৳{item.price * item.quantity}</span>
                           </div>
-                          <span className="flex-1 font-sans text-sm text-brand-brown">{item.name} ×{item.quantity}</span>
-                          <span className="font-sans text-sm font-bold text-brand-orange">৳{item.price * item.quantity}</span>
+                          {item.appetizers && item.appetizers.length > 0 && (
+                            <div className="pl-11 space-y-0.5">
+                              {item.appetizers.map((a) => (
+                                <div key={a.appetizerId || a.name} className="flex items-center gap-3">
+                                  <span className="flex-1 font-sans text-xs text-brand-brown-mid">+ {a.name} ×{a.quantity}</span>
+                                  <span className="font-sans text-xs text-brand-brown-mid">৳{a.price * a.quantity}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>

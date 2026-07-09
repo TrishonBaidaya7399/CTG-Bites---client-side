@@ -72,7 +72,10 @@ export default async function HomePage() {
   const recipes = await getRecipes();
 
   return (
-    <>
+    <div
+      className="bg-brand-cream bg-cover bg-center bg-no-repeat"
+      style={{ backgroundImage: "url(/bg-image.jpg)" }}
+    >
       <JsonLd data={restaurantSchema()} />
       <JsonLd data={websiteSchema()} />
       <HeroSection />
@@ -80,6 +83,6 @@ export default async function HomePage() {
       <FeaturedMenu />
       <RecipesSection recipes={recipes} />
       <TestimonialsSection />
-    </>
+    </div>
   );
 }

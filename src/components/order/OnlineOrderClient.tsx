@@ -7,6 +7,9 @@ import { Button } from "@/components/ui/button";
 import { useOrderStore } from "@/store/orderStore";
 import { SectionHeading } from "@/components/ui/SectionHeading";
 import { cn } from "@/lib/utils";
+import { MenuItemDetailModal } from "@/components/order/MenuItemDetailModal";
+import type { MenuItemDetail, AppetizerOption } from "@/components/menu/MenuItemDetailView";
+import type { LocalOrderLine } from "@/types/order";
 
 const AREAS = [
   "Agrabad","Badda","Bayezid","Chawkbazar","Double Mooring","GEC Circle",
@@ -23,7 +26,9 @@ interface ApiMenuItem {
   isSpicy?: boolean;
 }
 
-type LocalItem = { id: string; name: string; price: number; image: string; qty: number };
+function makeLineKey(menuItemId: string, appetizerIds: string[]): string {
+  return appetizerIds.length ? `${menuItemId}::${[...appetizerIds].sort().join(",")}` : menuItemId;
+}
 
 export function OnlineOrderClient() {
   const { placeOrder } = useOrderStore();
@@ -33,7 +38,8 @@ export function OnlineOrderClient() {
   const [loadingMenu, setLoadingMenu] = useState(true);
 
   const [activeCategory, setActiveCategory] = useState("All");
-  const [localItems, setLocalItems] = useState<LocalItem[]>([]);
+  const [localItems, setLocalItems] = useState<LocalOrderLine[]>([]);
+  const [detailItemId, setDetailItemId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [area, setArea] = useState("");
@@ -71,23 +77,57 @@ export function OnlineOrderClient() {
   }, []);
 
   const filtered = activeCategory === "All" ? menuItems : menuItems.filter((i) => i.category === activeCategory);
-  const totalPrice = localItems.reduce((s, i) => s + i.price * i.qty, 0);
+  const totalPrice = localItems.reduce((s, i) => {
+    const appetizersTotal = i.appetizers.reduce((sum, a) => sum + a.price * a.qty, 0);
+    return s + (i.price + appetizersTotal) * i.qty;
+  }, 0);
   const totalQty = localItems.reduce((s, i) => s + i.qty, 0);
 
   function adjustQty(item: ApiMenuItem, delta: number) {
+    const lineKey = item.id; // plain quick-add — no appetizers, key is just the menu item id
     setLocalItems((prev) => {
-      const existing = prev.find((i) => i.id === item.id);
+      const existing = prev.find((i) => i.lineKey === lineKey);
       if (!existing) {
         if (delta < 1) return prev;
-        return [...prev, { id: item.id, name: item.name, price: item.price, image: item.image, qty: 1 }];
+        return [...prev, { lineKey, id: item.id, name: item.name, price: item.price, image: item.image, qty: 1, appetizers: [] }];
       }
       const newQty = existing.qty + delta;
-      if (newQty < 1) return prev.filter((i) => i.id !== item.id);
-      return prev.map((i) => i.id === item.id ? { ...i, qty: newQty } : i);
+      if (newQty < 1) return prev.filter((i) => i.lineKey !== lineKey);
+      return prev.map((i) => i.lineKey === lineKey ? { ...i, qty: newQty } : i);
     });
   }
 
-  function getQty(id: string) { return localItems.find((i) => i.id === id)?.qty ?? 0; }
+  function getQty(id: string) { return localItems.find((i) => i.lineKey === id)?.qty ?? 0; }
+
+  function adjustLineQty(lineKey: string, delta: number) {
+    setLocalItems((prev) => {
+      const existing = prev.find((i) => i.lineKey === lineKey);
+      if (!existing) return prev;
+      const newQty = existing.qty + delta;
+      if (newQty < 1) return prev.filter((i) => i.lineKey !== lineKey);
+      return prev.map((i) => i.lineKey === lineKey ? { ...i, qty: newQty } : i);
+    });
+  }
+
+  function addBundle(item: MenuItemDetail, selected: AppetizerOption[]) {
+    const lineKey = makeLineKey(item.id, selected.map((a) => a.id));
+    setLocalItems((prev) => {
+      const existing = prev.find((i) => i.lineKey === lineKey);
+      if (existing) {
+        return prev.map((i) => i.lineKey === lineKey ? { ...i, qty: i.qty + 1 } : i);
+      }
+      return [...prev, {
+        lineKey,
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        image: item.image,
+        qty: 1,
+        appetizers: selected.map((a) => ({ id: a.id, name: a.name, price: a.price, image: a.image, qty: 1 })),
+      }];
+    });
+    setDetailItemId(null);
+  }
 
   function validate() {
     const e: Record<string, string> = {};
@@ -113,7 +153,13 @@ export function OnlineOrderClient() {
           customerName: name,
           customerPhone: phone,
           customerAddress: `${address}, ${area}, Chittagong`,
-          items: localItems.map((i) => ({ menuItemId: i.id, quantity: i.qty })),
+          items: localItems.map((i) => ({
+            menuItemId: i.id,
+            quantity: i.qty,
+            appetizers: i.appetizers.length
+              ? i.appetizers.map((a) => ({ appetizerId: a.id, quantity: i.qty }))
+              : undefined,
+          })),
           note: note || undefined,
         }),
       });
@@ -220,13 +266,18 @@ export function OnlineOrderClient() {
                   const qty = getQty(item.id);
                   return (
                     <motion.div key={item.id} layout className="bg-white rounded-2xl overflow-hidden shadow-sm flex flex-col">
-                      <div className="relative aspect-square bg-brand-warm-gray">
+                      <button
+                        type="button"
+                        onClick={() => setDetailItemId(item.id)}
+                        className="relative aspect-square bg-brand-warm-gray text-left"
+                        aria-label={`View details for ${item.name}`}
+                      >
                         <Image src={item.image} alt={item.name} fill sizes="(max-width: 640px) 50vw, 25vw" className="object-cover" />
                         <div className="absolute top-2 right-2 flex gap-1">
                           {item.isVeg && <span className="bg-brand-green-herb text-white rounded-full p-1"><Leaf className="w-2.5 h-2.5" /></span>}
                           {item.isSpicy && <span className="bg-red-500 text-white rounded-full p-1"><Flame className="w-2.5 h-2.5" /></span>}
                         </div>
-                      </div>
+                      </button>
                       <div className="p-3 flex flex-col flex-1 gap-1">
                         <p className="font-serif text-sm font-bold text-brand-brown line-clamp-2">{item.name}</p>
                         <p className="font-sans font-bold text-brand-orange text-sm mt-auto">৳{item.price}</p>
@@ -262,22 +313,31 @@ export function OnlineOrderClient() {
                   <p className="font-serif font-bold text-brand-brown">Your Order ({totalQty} items)</p>
                 </div>
                 <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {localItems.map((item) => (
-                    <div key={item.id} className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 bg-brand-warm-gray">
-                        <Image src={item.image} alt={item.name} width={32} height={32} className="w-full h-full object-cover" />
+                  {localItems.map((item) => {
+                    const appetizersTotal = item.appetizers.reduce((s, a) => s + a.price * a.qty, 0);
+                    const lineTotal = (item.price + appetizersTotal) * item.qty;
+                    return (
+                      <div key={item.lineKey} className="flex items-start gap-2">
+                        <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 bg-brand-warm-gray">
+                          <Image src={item.image} alt={item.name} width={32} height={32} className="w-full h-full object-cover" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-sans text-xs font-medium text-brand-brown truncate">{item.name}</p>
+                          {item.appetizers.length > 0 && (
+                            <p className="font-sans text-xs text-brand-brown-mid truncate">
+                              + {item.appetizers.map((a) => a.name).join(", ")}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button onClick={() => adjustLineQty(item.lineKey, -1)} className="w-5 h-5 rounded-full border border-brand-warm-gray flex items-center justify-center"><Minus className="w-2.5 h-2.5" /></button>
+                          <span className="font-sans text-xs font-bold text-brand-brown w-4 text-center">{item.qty}</span>
+                          <button onClick={() => adjustLineQty(item.lineKey, 1)} className="w-5 h-5 rounded-full bg-brand-orange text-white flex items-center justify-center"><Plus className="w-2.5 h-2.5" /></button>
+                        </div>
+                        <p className="font-sans text-xs font-bold text-brand-orange shrink-0 ml-1">৳{lineTotal}</p>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-sans text-xs font-medium text-brand-brown truncate">{item.name}</p>
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button onClick={() => adjustQty(menuItems.find(m=>m.id===item.id)!, -1)} className="w-5 h-5 rounded-full border border-brand-warm-gray flex items-center justify-center"><Minus className="w-2.5 h-2.5" /></button>
-                        <span className="font-sans text-xs font-bold text-brand-brown w-4 text-center">{item.qty}</span>
-                        <button onClick={() => adjustQty(menuItems.find(m=>m.id===item.id)!, 1)} className="w-5 h-5 rounded-full bg-brand-orange text-white flex items-center justify-center"><Plus className="w-2.5 h-2.5" /></button>
-                      </div>
-                      <p className="font-sans text-xs font-bold text-brand-orange shrink-0 ml-1">৳{item.price * item.qty}</p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 <div className="flex justify-between font-serif font-bold text-brand-brown border-t border-brand-warm-gray pt-2">
                   <span>Total</span>
@@ -348,6 +408,14 @@ export function OnlineOrderClient() {
           </div>
         </div>
       </div>
+
+      {detailItemId && (
+        <MenuItemDetailModal
+          menuItemId={detailItemId}
+          onClose={() => setDetailItemId(null)}
+          onAddBundle={addBundle}
+        />
+      )}
     </div>
   );
 }

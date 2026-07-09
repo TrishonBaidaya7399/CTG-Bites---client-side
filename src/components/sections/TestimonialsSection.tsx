@@ -4,7 +4,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { Star, Quote, ChevronLeft, ChevronRight } from "lucide-react";
 import { SectionHeading } from "@/components/ui/SectionHeading";
+import { AnimatedTooltip } from "@/components/ui/animated-tooltip";
 import type { Review } from "@/types/review";
+
+const FALLBACK_AVATAR = "/images/avatars/avatar 1.jpg";
 
 const AUTO_ADVANCE_MS = 6000;
 
@@ -39,33 +42,52 @@ function groupReviews(reviews: Review[]): ReviewGroup[] {
   );
 }
 
-/** Dish image(s) for the active review — orbiting when a group has more than one item. */
+/** Dish image(s) for the active review — orbiting when a group has more than one item;
+ *  a single plain circular image (no reserved orbit space) when there's just one. */
 function ReviewDishVisual({ items }: { items: ReviewGroup["items"] }) {
   const [main, ...rest] = items;
 
+  if (rest.length === 0) {
+    return (
+      <div className="relative w-full flex items-center justify-center py-4">
+        <motion.div
+          animate={{ y: [0, -10, 0] }}
+          transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+          className="relative z-10"
+        >
+          <motion.div
+            key={main.itemName}
+            initial={{ opacity: 0, scale: 0.85 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.4 }}
+            className="rounded-full overflow-hidden shadow-2xl border-4 border-white bg-brand-cream relative w-48 h-48 sm:w-60 sm:h-60 md:w-70 md:h-70 lg:w-80 lg:h-80"
+          >
+            <Image src={main.itemImage} alt={main.itemName} fill sizes="(max-width: 640px) 224px, (max-width: 768px) 320px, 420px" className="object-cover" priority />
+          </motion.div>
+        </motion.div>
+      </div>
+    );
+  }
+
   return (
-    <div className="relative w-full h-90 sm:h-100 md:h-130 lg:h-155 flex items-center justify-center">
+    <div className="relative w-full aspect-square flex items-center justify-center">
       {/* Orbit rings — only when there's more than one dish to place on them */}
-      {rest.length > 0 && (
-        <>
-          <div
-            className="absolute rounded-full border border-dashed border-brand-orange/20 hidden sm:block"
-            style={{ width: 460, height: 460 }}
-          />
-          <div
-            className="absolute rounded-full border border-dashed border-brand-brown/10 hidden sm:block"
-            style={{ width: 360, height: 360 }}
-          />
-          <div
-            className="absolute rounded-full border border-dashed border-brand-orange/20 sm:hidden"
-            style={{ width: 280, height: 280 }}
-          />
-          <div
-            className="absolute rounded-full border border-dashed border-brand-brown/10 sm:hidden"
-            style={{ width: 220, height: 220 }}
-          />
-        </>
-      )}
+      <div
+        className="absolute rounded-full border border-dashed border-brand-orange/20 hidden sm:block"
+        style={{ width: 460, height: 460 }}
+      />
+      <div
+        className="absolute rounded-full border border-dashed border-brand-brown/10 hidden sm:block"
+        style={{ width: 360, height: 360 }}
+      />
+      <div
+        className="absolute rounded-full border border-dashed border-brand-orange/20 sm:hidden"
+        style={{ width: 280, height: 280 }}
+      />
+      <div
+        className="absolute rounded-full border border-dashed border-brand-brown/10 sm:hidden"
+        style={{ width: 220, height: 220 }}
+      />
 
       {rest.map((item, i) => {
         const angle = (360 / rest.length) * i;
@@ -290,27 +312,20 @@ export function TestimonialsSection() {
 
                   <p className="font-sans text-sm font-semibold text-brand-brown">{active.customerName}</p>
 
-                  {/* Avatar dot row — click to switch review */}
-                  <div className="flex items-center gap-2 pt-2">
-                    {avatarDots.map((g, i) => (
-                      <button
-                        key={g.groupId}
-                        onClick={() => { setActiveIndex(i); pauseThenResume(); }}
-                        className={`relative w-10 h-10 rounded-full overflow-hidden border-2 transition-all shrink-0 ${
-                          i === activeIndex ? "border-brand-orange scale-110" : "border-transparent opacity-60 hover:opacity-100"
-                        }`}
-                        aria-label={`Show review from ${g.customerName}`}
-                      >
-                        {g.customerAvatar ? (
-                          <Image src={g.customerAvatar} alt={g.customerName} fill sizes="40px" className="object-cover" />
-                        ) : (
-                          <div className="w-full h-full bg-brand-warm-gray flex items-center justify-center font-sans text-xs font-bold text-brand-brown-mid">
-                            {g.customerName.charAt(0).toUpperCase()}
-                          </div>
-                        )}
-                      </button>
-                    ))}
+                  {/* Avatar row — hover shows name/dish tooltip, click switches review */}
+                  <div className="flex items-center pt-2">
+                    <AnimatedTooltip
+                      items={avatarDots.map((g, i) => ({
+                        id: i,
+                        name: g.customerName,
+                        designation: g.items.map((it) => it.itemName).join(" · "),
+                        image: g.customerAvatar || FALLBACK_AVATAR,
+                      }))}
+                      activeId={activeIndex}
+                      onSelect={(i) => { setActiveIndex(i); pauseThenResume(); }}
+                    />
                   </div>
+
                 </motion.div>
               )}
             </AnimatePresence>

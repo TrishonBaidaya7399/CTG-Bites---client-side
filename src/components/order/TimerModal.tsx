@@ -309,10 +309,17 @@ export function TimerModal() {
                 )}
                 <div className="flex-1 min-w-0 space-y-1">
                   {liveOrder.items.map((item) => (
-                    <p key={item.menuItemId} className="font-sans text-xs text-brand-brown truncate">
-                      <span className="font-semibold">{item.name}</span>
-                      <span className="text-brand-brown-mid"> ×{item.quantity}</span>
-                    </p>
+                    <div key={item.menuItemId}>
+                      <p className="font-sans text-xs text-brand-brown truncate">
+                        <span className="font-semibold">{item.name}</span>
+                        <span className="text-brand-brown-mid"> ×{item.quantity}</span>
+                      </p>
+                      {item.appetizers && item.appetizers.length > 0 && (
+                        <p className="font-sans text-xs text-brand-brown-mid truncate pl-2">
+                          + {item.appetizers.map((a) => a.name).join(", ")}
+                        </p>
+                      )}
+                    </div>
                   ))}
                 </div>
               </div>

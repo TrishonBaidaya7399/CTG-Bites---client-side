@@ -30,6 +30,7 @@ interface MenuItem {
   isSpicy?: boolean;
   available: boolean;
   appetizers?: string[];
+  ingredients?: string[];
 }
 
 interface ApiAppetizer {
@@ -57,6 +58,7 @@ const EMPTY_DRAFT: MenuItem = {
   isSpicy: false,
   available: true,
   appetizers: [],
+  ingredients: [],
 };
 
 function normalizeMenuItem(raw: Record<string, unknown>): MenuItem {
@@ -77,6 +79,7 @@ function normalizeMenuItem(raw: Record<string, unknown>): MenuItem {
     appetizers: Array.isArray(raw.appetizers)
       ? (raw.appetizers as unknown[]).map((a) => (typeof a === "string" ? a : ((a as Record<string, unknown>)._id as string)))
       : [],
+    ingredients: Array.isArray(raw.ingredients) ? (raw.ingredients as string[]) : [],
   };
 }
 
@@ -92,6 +95,7 @@ export default function AdminMenuPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [draft, setDraft] = useState<MenuItem>(EMPTY_DRAFT);
+  const [ingredientsText, setIngredientsText] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
 
@@ -153,6 +157,7 @@ export default function AdminMenuPage() {
   function openCreate() {
     setEditId(null);
     setDraft(EMPTY_DRAFT);
+    setIngredientsText("");
     setSaveError("");
     setDialogOpen(true);
   }
@@ -160,6 +165,7 @@ export default function AdminMenuPage() {
   function openEdit(item: MenuItem) {
     setEditId(item.id);
     setDraft({ ...item });
+    setIngredientsText((item.ingredients ?? []).join(", "));
     setSaveError("");
     setDialogOpen(true);
   }
@@ -168,6 +174,7 @@ export default function AdminMenuPage() {
     setDialogOpen(false);
     setEditId(null);
     setDraft(EMPTY_DRAFT);
+    setIngredientsText("");
     setSaveError("");
   }
 
@@ -209,6 +216,7 @@ export default function AdminMenuPage() {
         isVeg: draft.isVeg,
         isSpicy: draft.isSpicy,
         appetizers: draft.appetizers ?? [],
+        ingredients: ingredientsText.split(",").map((s) => s.trim()).filter(Boolean),
       };
 
       const url = editId ? `/api/menu/${encodeURIComponent(editId)}` : "/api/menu";
@@ -343,6 +351,20 @@ export default function AdminMenuPage() {
                 value={draft.description}
                 onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))}
                 className="w-full font-sans text-sm bg-brand-warm-gray/40 border border-brand-warm-gray rounded-xl px-4 py-2.5 outline-none focus:border-brand-orange transition-colors resize-none"
+              />
+            </div>
+
+            {/* Ingredients */}
+            <div>
+              <label className="block font-sans text-xs font-semibold text-brand-brown-mid uppercase tracking-wider mb-1.5">
+                Ingredients <span className="normal-case font-normal opacity-60">(comma-separated)</span>
+              </label>
+              <input
+                type="text"
+                value={ingredientsText}
+                onChange={(e) => setIngredientsText(e.target.value)}
+                placeholder="Chicken, Onion, Garlic, Ginger, Turmeric"
+                className="w-full font-sans text-sm bg-brand-warm-gray/40 border border-brand-warm-gray rounded-xl px-4 py-2.5 outline-none focus:border-brand-orange transition-colors"
               />
             </div>
 

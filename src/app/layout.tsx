@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Playfair_Display, Inter } from "next/font/google";
+import { Playfair_Display, Inter, Italianno, Courgette } from "next/font/google";
 import "./globals.css";
 import { ConditionalShell } from "@/components/layout/ConditionalShell";
 
@@ -12,6 +12,22 @@ const playfair = Playfair_Display({
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
+  display: "swap",
+});
+
+// Client-site-only decorative fonts for section headings/subheadings — never used
+// in the admin panel (SectionHeading, the only consumer, isn't rendered there).
+const italianno = Italianno({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-italianno",
+  display: "swap",
+});
+
+const courgette = Courgette({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-courgette",
   display: "swap",
 });
 
@@ -74,7 +90,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${playfair.variable} ${inter.variable}`}>
+    <html lang="en" className={`${playfair.variable} ${inter.variable} ${italianno.variable} ${courgette.variable}`}>
       <body>
         <ConditionalShell>{children}</ConditionalShell>
       </body>
