@@ -40,7 +40,7 @@ export function RecipesSection({ recipes }: { recipes: Recipe[] }) {
               whileHover={{ y: -5 }}
               className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all group snap-start shrink-0 w-[80vw] sm:w-[60vw] md:w-auto"
             >
-              <div className="relative h-48 md:h-56 overflow-hidden bg-brand-warm-gray">
+              <div className="relative aspect-square overflow-hidden bg-brand-warm-gray">
                 <Image
                   src={recipe.image}
                   alt={recipe.title}
